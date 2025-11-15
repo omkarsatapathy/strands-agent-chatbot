@@ -78,8 +78,8 @@ async function sendMessage() {
     sendButton.disabled = true;
     updateStatus('Generating...', true);
 
-    // Create streaming message container
-    const streamingMessageId = createStreamingMessage();
+    // Show typing indicator
+    const typingId = showTypingIndicator();
 
     // Get last 10 conversation pairs (20 messages: 10 user + 10 assistant)
     // Keep the most recent history to maintain context while limiting payload size
@@ -101,62 +101,23 @@ async function sendMessage() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        // Handle streaming response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = '';
-        let buffer = '';
+        const data = await response.json();
+        console.log('Received data:', data);
 
-        while (true) {
-            const { done, value } = await reader.read();
+        // Remove typing indicator
+        removeTypingIndicator(typingId);
 
-            if (done) {
-                console.log('Stream complete');
-                break;
-            }
-
-            // Decode the chunk and add to buffer
-            buffer += decoder.decode(value, { stream: true });
-
-            // Process complete lines from buffer
-            const lines = buffer.split('\n');
-            // Keep the last incomplete line in buffer
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (line.trim().startsWith('data: ')) {
-                    try {
-                        const jsonStr = line.trim().substring(6);
-                        console.log('Received data:', jsonStr);
-                        const data = JSON.parse(jsonStr);
-
-                        if (data.error) {
-                            showError('Error in response');
-                            removeStreamingMessage(streamingMessageId);
-                            return;
-                        }
-
-                        if (!data.done && data.chunk) {
-                            fullResponse += data.chunk;
-                            updateStreamingMessage(streamingMessageId, fullResponse);
-                        }
-
-                        if (data.done) {
-                            console.log('Stream done, finalizing...');
-                            finalizeStreamingMessage(streamingMessageId);
-                            if (fullResponse) {
-                                conversationHistory.push({ role: 'assistant', content: fullResponse });
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error parsing SSE data:', e, 'Line:', line);
-                    }
-                }
-            }
+        if (data.response) {
+            console.log('Adding bot message:', data.response);
+            addMessage(data.response, 'bot');
+            conversationHistory.push({ role: 'assistant', content: data.response });
+        } else {
+            console.error('No response in data:', data);
+            showError('No response received from server');
         }
 
     } catch (error) {
-        removeStreamingMessage(streamingMessageId);
+        removeTypingIndicator(typingId);
         showError('Failed to get response from server. Please try again.');
         console.error('Error:', error);
     } finally {
@@ -222,14 +183,34 @@ async function performWebSearch() {
 
 // Add message to chat
 function addMessage(text, sender) {
+    console.log('addMessage called with:', text.substring(0, 100));
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}-message`;
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
 
-    const textElement = document.createElement('p');
-    textElement.textContent = text;
+    const textElement = document.createElement('div');
+
+    // Process markdown-style formatting
+    let formattedText = text;
+
+    // Convert ## Heading to <h3>
+    formattedText = formattedText.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+
+    // Convert ### Heading to <h4>
+    formattedText = formattedText.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+
+    // Convert **text** to <strong> (non-greedy match)
+    formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Convert newlines to <br>
+    formattedText = formattedText.replace(/\n/g, '<br>');
+
+    console.log('Formatted text:', formattedText.substring(0, 100));
+
+    textElement.innerHTML = formattedText;
     textElement.style.whiteSpace = 'pre-wrap';
 
     contentDiv.appendChild(textElement);

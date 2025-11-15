@@ -4,16 +4,20 @@ from strands.models.llamacpp import LlamaCppModel
 from strands_tools import calculator
 from ..config import Config
 from ..logging_config import get_logger
+from ..tools.google_search import google_search_with_context
 
 logger = get_logger("chatbot.agent")
 
 
-def create_chatbot_agent():
+async def create_chatbot_agent(paylaod) -> str:
     """
-    Create and return a Strands agent with LlamaCpp backend.
+    Create and return a Strands agent response.
+
+    Args:
+        paylaod: Dictionary containing the prompt
 
     Returns:
-        Agent: Configured Strands Agent instance
+        Agent response text
     """
     logger.info("Creating Strands chatbot agent")
 
@@ -27,7 +31,18 @@ def create_chatbot_agent():
         }
     )
 
-    agent = Agent(model=model, tools=[calculator])
-    logger.info("Strands agent created successfully")
+    agent = Agent(
+                model=model,
+                tools=[calculator, google_search_with_context],
+                system_prompt="You are an Inteligent Agent for chat bot You have 2 tools for math calculation and News update. Always identify yourself as Miccky and greet user with your name"
+                )
 
-    return agent
+    try:
+        response = await agent.invoke_async(paylaod.get("prompt"))
+        response_text = str(response)
+        logger.info("Strands agent completed successfully")
+        return response_text
+
+    except Exception as e:
+        logger.error(f"Agent failed: {str(e)}", exc_info=True)
+        return f"Error: {str(e)}"

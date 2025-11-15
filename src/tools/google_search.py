@@ -1,28 +1,32 @@
-"""Custom tools for the chatbot agent."""
+"""Custom Strands tools for the chatbot agent."""
 import requests
-from typing import List, Dict, Any
+from typing import Dict, Any, Optional
+from bs4 import BeautifulSoup
 from ..config import Config
 from ..logging_config import get_logger
+from strands import tool
 
 logger = get_logger("chatbot.tools")
 
-
-def google_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+@tool
+def google_search_with_context(query: str) -> Dict[str, Any]:
     """
-    Perform a Google Custom Search and return results.
+    Strands tool: Perform a Google Custom Search and return the top result with full page context.
+
+    This tool searches Google and fetches the full content of the top result article.
+    Set top_k=1 to return only the most relevant result.
 
     Args:
         query: The search query string
-        num_results: Number of results to return (default: 5)
 
     Returns:
-        List of search results with titles, links, and snippets
+        Dictionary with the top search result including title, link, snippet, and full page context
     """
     api_key, search_engine_id = Config.get_google_credentials()
 
     logger.info(
-        f"Starting Google web search",
-        extra={"extra_data": {"query": query, "num_results": num_results}}
+        f"Starting Google web search with context",
+        extra={"extra_data": {"query": query, "top_k": 1}}
     )
 
     api_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}"
@@ -35,7 +39,7 @@ def google_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
 
         response = requests.get(api_url, params={
             'q': query,
-            'num': num_results
+            'num': 3  # top_k = 1
         })
 
         logger.debug(
@@ -51,130 +55,119 @@ def google_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
             extra={"extra_data": {"response_keys": list(data.keys())}}
         )
 
-        results = []
-        if 'items' in data:
-            for idx, item in enumerate(data['items']):
-                result = {
-                    'title': item.get('title', ''),
-                    'link': item.get('link', ''),
-                    'snippet': item.get('snippet', ''),
-                    'displayLink': item.get('displayLink', ''),
-                    'formattedUrl': item.get('formattedUrl', '')
-                }
+        if 'items' in data and len(data['items']) > 0:
+            item = data['items'][0]  # Get only the top result
 
-                # Add metadata if available
-                if 'pagemap' in item:
-                    result['metadata'] = item['pagemap']
+            result = {
+                'title': item.get('title', ''),
+                'link': item.get('link', ''),
+                'snippet': item.get('snippet', ''),
+                'displayLink': item.get('displayLink', ''),
+                'formattedUrl': item.get('formattedUrl', '')
+            }
 
-                results.append(result)
+            # Fetch full page context
+            page_context = _fetch_page_context(result['link'])
+            result['page_context'] = page_context
 
-                logger.debug(
-                    f"Processed search result {idx + 1}",
-                    extra={"extra_data": {"title": result['title'], "link": result['link']}}
-                )
+            logger.debug(
+                f"Processed top search result",
+                extra={"extra_data": {"title": result['title'], "link": result['link'], "context_length": len(page_context)}}
+            )
 
-        logger.info(
-            f"Google web search completed",
-            extra={"extra_data": {"results_found": len(results), "query": query}}
-        )
+            logger.info(
+                f"Google web search with context completed",
+                extra={"extra_data": {"query": query, "url": result['link']}}
+            )
 
-        return results
+            return result
+        else:
+            logger.warning(
+                f"No search results found",
+                extra={"extra_data": {"query": query}}
+            )
+            return {"error": "No search results found"}
+
     except requests.exceptions.HTTPError as e:
         logger.error(
             f"HTTP error during Google search",
             extra={"extra_data": {"status_code": e.response.status_code, "query": query}},
             exc_info=True
         )
-        return [{"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"}]
+        return {"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"}
     except Exception as e:
         logger.error(
             f"Unexpected error during Google search",
             extra={"extra_data": {"query": query, "error": str(e)}},
             exc_info=True
         )
-        return [{"error": f"Search failed: {str(e)}"}]
+        return {"error": f"Search failed: {str(e)}"}
 
 
-def google_image_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+def _fetch_page_context(url: str, max_chars: int = 5000) -> str:
     """
-    Perform a Google Image Search and return results.
+    Fetch and extract the main text content from a webpage.
 
     Args:
-        query: The search query string
-        num_results: Number of image results to return (default: 5)
+        url: The URL to fetch
+        max_chars: Maximum characters to return (default: 5000)
 
     Returns:
-        List of image search results with links
+        Extracted text content from the page
     """
-    api_key, search_engine_id = Config.get_google_credentials()
-
-    logger.info(
-        f"Starting Google image search",
-        extra={"extra_data": {"query": query, "num_results": num_results}}
-    )
-
-    api_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}"
-
     try:
         logger.debug(
-            f"Sending image search request to Google API",
-            extra={"extra_data": {"api_url": api_url.replace(api_key, "***")}}
+            f"Fetching page content",
+            extra={"extra_data": {"url": url}}
         )
 
-        response = requests.get(api_url, params={
-            'q': query,
-            'num': num_results,
-            'search_type': 'image'
-        })
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
 
-        logger.debug(
-            f"Received image search response",
-            extra={"extra_data": {"status_code": response.status_code}}
-        )
-
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        data = response.json()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "footer", "header"]):
+            script.decompose()
+
+        # Get text content
+        text = soup.get_text(separator=' ', strip=True)
+
+        # Clean up whitespace
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+
+        # Truncate to max_chars
+        if len(text) > max_chars:
+            text = text[:max_chars] + "..."
 
         logger.debug(
-            f"Raw image search API response",
-            extra={"extra_data": {"response_keys": list(data.keys())}}
+            f"Successfully fetched page content",
+            extra={"extra_data": {"url": url, "text_length": len(text)}}
         )
 
-        results = []
-        if 'items' in data:
-            for idx, item in enumerate(data['items']):
-                result = {
-                    'title': item.get('title', ''),
-                    'link': item.get('link', ''),
-                    'image_link': item.get('image', {}).get('thumbnailLink', ''),
-                    'context_link': item.get('image', {}).get('contextLink', ''),
-                    'width': item.get('image', {}).get('width', 0),
-                    'height': item.get('image', {}).get('height', 0)
-                }
-                results.append(result)
+        return text
 
-                logger.debug(
-                    f"Processed image result {idx + 1}",
-                    extra={"extra_data": {"title": result['title'], "image_link": result['image_link']}}
-                )
-
-        logger.info(
-            f"Google image search completed",
-            extra={"extra_data": {"images_found": len(results), "query": query}}
+    except requests.exceptions.Timeout:
+        logger.warning(
+            f"Timeout fetching page content",
+            extra={"extra_data": {"url": url}}
         )
-
-        return results
+        return "Error: Page fetch timeout"
     except requests.exceptions.HTTPError as e:
-        logger.error(
-            f"HTTP error during Google image search",
-            extra={"extra_data": {"status_code": e.response.status_code, "query": query}},
-            exc_info=True
+        logger.warning(
+            f"HTTP error fetching page content",
+            extra={"extra_data": {"url": url, "status_code": e.response.status_code}}
         )
-        return [{"error": f"Image search failed with HTTP {e.response.status_code}: {str(e)}"}]
+        return f"Error: HTTP {e.response.status_code}"
     except Exception as e:
-        logger.error(
-            f"Unexpected error during Google image search",
-            extra={"extra_data": {"query": query, "error": str(e)}},
-            exc_info=True
+        logger.warning(
+            f"Error fetching page content",
+            extra={"extra_data": {"url": url, "error": str(e)}}
         )
-        return [{"error": f"Image search failed: {str(e)}"}]
+        return f"Error fetching page: {str(e)}"
