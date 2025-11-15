@@ -13,10 +13,10 @@ import json
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.agent.chatbot_agent import create_chatbot_agent
 from src.tools.google_search import google_search, google_image_search
 from src.config import Config
 from src.logging_config import setup_logging, get_logger
+import requests
 
 # Setup logging
 logger = setup_logging(
@@ -24,6 +24,71 @@ logger = setup_logging(
     log_to_file=Config.LOG_TO_FILE,
     log_to_console=Config.LOG_TO_CONSOLE
 )
+
+
+class SimpleLlamaCppClient:
+    """Simple client for llama.cpp server."""
+
+    def __init__(self, base_url: str = None, temperature: float = None):
+        self.base_url = (base_url or Config.LLAMA_CPP_URL).rstrip('/')
+        self.temperature = temperature or Config.LLM_TEMPERATURE
+        self.conversation_history: List[Dict[str, str]] = []
+
+    def chat_stream(self, message: str, system_prompt: str = None, conversation_history: List[Dict[str, str]] = None):
+        """Stream chat response from LlamaCpp server."""
+        history_to_use = conversation_history if conversation_history is not None else self.conversation_history
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.extend(history_to_use)
+        messages.append({"role": "user", "content": message})
+
+        payload = {
+            "messages": messages,
+            "model": "default",
+            "temperature": self.temperature,
+            "max_tokens": Config.LLM_MAX_TOKENS,
+            "stream": True
+        }
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/v1/chat/completions",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=120,
+                stream=True
+            )
+            response.raise_for_status()
+
+            full_content = ""
+            for line in response.iter_lines():
+                if line:
+                    line_text = line.decode('utf-8')
+                    if line_text.startswith('data: '):
+                        data_str = line_text[6:]
+                        if data_str.strip() == '[DONE]':
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            content_chunk = delta.get("content", "")
+                            if content_chunk:
+                                full_content += content_chunk
+                                yield content_chunk
+                        except json.JSONDecodeError:
+                            continue
+
+            if conversation_history is None:
+                self.conversation_history.append({"role": "user", "content": message})
+                self.conversation_history.append({"role": "assistant", "content": full_content})
+                if len(self.conversation_history) > 20:
+                    self.conversation_history = self.conversation_history[-20:]
+
+        except Exception as e:
+            logger.error(f"Error during streaming chat: {str(e)}", exc_info=True)
+            yield f"Error: {str(e)}"
 
 
 app = FastAPI(title="Chatbot API", version="1.0.0")
@@ -122,8 +187,7 @@ def get_agent():
     global agent
     if agent is None:
         logger.info("Initializing chatbot agent")
-        # Create agent using config values
-        agent = create_chatbot_agent()
+        agent = SimpleLlamaCppClient()
         logger.info("Chatbot agent initialized successfully")
     return agent
 
