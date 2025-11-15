@@ -31,7 +31,13 @@ async def read_root():
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    response_text = await create_chatbot_agent({"prompt": request.message})
+    # Limit conversation history to last 10 messages (5 pairs of user-assistant)
+    limited_history = request.conversation_history[-10:] if len(request.conversation_history) > 10 else request.conversation_history
+
+    response_text = await create_chatbot_agent({
+        "prompt": request.message,
+        "conversation_history": limited_history
+    })
     return {"response": response_text}
 
 
