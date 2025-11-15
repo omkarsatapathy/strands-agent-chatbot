@@ -7,12 +7,11 @@ from pydantic import BaseModel
 from typing import List, Dict
 import sys
 from pathlib import Path
-import json
-import requests
 
 sys.path.append(str(Path(__file__).parent / "src"))
 from src.config import Config
-from src.logging_config import setup_logging, get_logger
+from src.logging_config import setup_logging
+from src.streaming import stream_chat_response
 
 logger = setup_logging(Config.LOG_LEVEL, Config.LOG_TO_FILE, Config.LOG_TO_CONSOLE)
 
@@ -32,35 +31,11 @@ async def read_root():
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    def generate_stream():
-        try:
-            messages = [*request.conversation_history, {"role": "user", "content": request.message}]
-
-            response = requests.post(
-                f"{Config.LLAMA_CPP_URL}/v1/chat/completions",
-                json={"messages": messages, "temperature": Config.LLM_TEMPERATURE, "max_tokens": Config.LLM_MAX_TOKENS, "stream": True},
-                stream=True,
-                timeout=120
-            )
-            response.raise_for_status()
-
-            for line in response.iter_lines():
-                if line and (text := line.decode('utf-8')).startswith('data: '):
-                    if (data_str := text[6:].strip()) == '[DONE]':
-                        break
-                    try:
-                        if content := json.loads(data_str).get("choices", [{}])[0].get("delta", {}).get("content", ""):
-                            yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
-                    except json.JSONDecodeError:
-                        continue
-
-            yield f"data: {json.dumps({'chunk': '', 'done': True})}\n\n"
-
-        except Exception as e:
-            logger.error(f"Chat failed: {str(e)}", exc_info=True)
-            yield f"data: {json.dumps({'chunk': f'Error: {str(e)}', 'done': True, 'error': True})}\n\n"
-
-    return StreamingResponse(generate_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "Connection": "keep-alive"})
+    return StreamingResponse(
+        stream_chat_response(request.message, request.conversation_history),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+    )
 
 
 @app.get("/api/health")
