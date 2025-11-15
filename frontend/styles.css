@@ -149,6 +149,43 @@ body {
     line-height: 1.4;
 }
 
+/* Table styles */
+.markdown-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    background: #1a1a1a;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.markdown-table thead {
+    background: #2a2a2a;
+}
+
+.markdown-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #60a5fa;
+    border-bottom: 2px solid #3a3a3a;
+}
+
+.markdown-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #2a2a2a;
+    color: #d1d5db;
+}
+
+.markdown-table tbody tr:hover {
+    background: #222;
+}
+
+.markdown-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
 .typing-indicator {
     display: flex;
     gap: 4px;

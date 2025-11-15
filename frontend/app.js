@@ -181,6 +181,80 @@ async function performWebSearch() {
     }
 }
 
+// Convert markdown tables to HTML
+function convertMarkdownTables(text) {
+    const lines = text.split('\n');
+    let result = [];
+    let inTable = false;
+    let tableRows = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Check if this is a table row (starts and ends with |)
+        if (line.startsWith('|') && line.endsWith('|')) {
+            // Check if it's a separator line (contains only |, -, and spaces)
+            if (/^\|[\s\-|]+\|$/.test(line)) {
+                continue; // Skip separator lines
+            }
+
+            if (!inTable) {
+                inTable = true;
+                tableRows = [];
+            }
+
+            // Parse the row
+            const cells = line.split('|').slice(1, -1).map(cell => cell.trim());
+            tableRows.push(cells);
+        } else {
+            // Not a table line
+            if (inTable) {
+                // End of table, convert to HTML
+                result.push(convertTableToHTML(tableRows));
+                tableRows = [];
+                inTable = false;
+            }
+            result.push(line);
+        }
+    }
+
+    // Handle table at end of text
+    if (inTable && tableRows.length > 0) {
+        result.push(convertTableToHTML(tableRows));
+    }
+
+    return result.join('\n');
+}
+
+function convertTableToHTML(rows) {
+    if (rows.length === 0) return '';
+
+    let html = '<table class="markdown-table">';
+
+    // First row is header
+    html += '<thead><tr>';
+    for (const cell of rows[0]) {
+        html += `<th>${cell}</th>`;
+    }
+    html += '</tr></thead>';
+
+    // Remaining rows are body
+    if (rows.length > 1) {
+        html += '<tbody>';
+        for (let i = 1; i < rows.length; i++) {
+            html += '<tr>';
+            for (const cell of rows[i]) {
+                html += `<td>${cell}</td>`;
+            }
+            html += '</tr>';
+        }
+        html += '</tbody>';
+    }
+
+    html += '</table>';
+    return html;
+}
+
 // Add message to chat
 function addMessage(text, sender) {
     console.log('addMessage called with:', text.substring(0, 100));
@@ -195,6 +269,9 @@ function addMessage(text, sender) {
 
     // Process markdown-style formatting
     let formattedText = text;
+
+    // Convert markdown tables to HTML tables
+    formattedText = convertMarkdownTables(formattedText);
 
     // Convert ## Heading to <h3>
     formattedText = formattedText.replace(/^## (.+)$/gm, '<h3>$1</h3>');
