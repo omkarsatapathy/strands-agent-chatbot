@@ -1,4 +1,4 @@
 """Agent package for the chatbot."""
-from .chatbot_agent import SimpleLlamaCppClient, create_chatbot_agent
+from .chatbot_agent import create_chatbot_agent
 
-__all__ = ['SimpleLlamaCppClient', 'create_chatbot_agent']
+__all__ = ['create_chatbot_agent']

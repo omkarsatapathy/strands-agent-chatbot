@@ -1,22 +1,20 @@
 """FastAPI backend for the chatbot application."""
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict
 import sys
 from pathlib import Path
-import time
 import json
+import requests
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.tools.google_search import google_search, google_image_search
 from src.config import Config
 from src.logging_config import setup_logging, get_logger
-import requests
 
 # Setup logging
 logger = setup_logging(
@@ -25,126 +23,7 @@ logger = setup_logging(
     log_to_console=Config.LOG_TO_CONSOLE
 )
 
-
-class SimpleLlamaCppClient:
-    """Simple client for llama.cpp server."""
-
-    def __init__(self, base_url: str = None, temperature: float = None):
-        self.base_url = (base_url or Config.LLAMA_CPP_URL).rstrip('/')
-        self.temperature = temperature or Config.LLM_TEMPERATURE
-        self.conversation_history: List[Dict[str, str]] = []
-
-    def chat_stream(self, message: str, system_prompt: str = None, conversation_history: List[Dict[str, str]] = None):
-        """Stream chat response from LlamaCpp server."""
-        history_to_use = conversation_history if conversation_history is not None else self.conversation_history
-
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.extend(history_to_use)
-        messages.append({"role": "user", "content": message})
-
-        payload = {
-            "messages": messages,
-            "model": "default",
-            "temperature": self.temperature,
-            "max_tokens": Config.LLM_MAX_TOKENS,
-            "stream": True
-        }
-
-        try:
-            response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=120,
-                stream=True
-            )
-            response.raise_for_status()
-
-            full_content = ""
-            for line in response.iter_lines():
-                if line:
-                    line_text = line.decode('utf-8')
-                    if line_text.startswith('data: '):
-                        data_str = line_text[6:]
-                        if data_str.strip() == '[DONE]':
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            delta = data.get("choices", [{}])[0].get("delta", {})
-                            content_chunk = delta.get("content", "")
-                            if content_chunk:
-                                full_content += content_chunk
-                                yield content_chunk
-                        except json.JSONDecodeError:
-                            continue
-
-            if conversation_history is None:
-                self.conversation_history.append({"role": "user", "content": message})
-                self.conversation_history.append({"role": "assistant", "content": full_content})
-                if len(self.conversation_history) > 20:
-                    self.conversation_history = self.conversation_history[-20:]
-
-        except Exception as e:
-            logger.error(f"Error during streaming chat: {str(e)}", exc_info=True)
-            yield f"Error: {str(e)}"
-
-
 app = FastAPI(title="Chatbot API", version="1.0.0")
-
-# Logging middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all HTTP requests."""
-    start_time = time.time()
-
-    # Log request
-    logger.info(
-        f"Request started: {request.method} {request.url.path}",
-        extra={
-            "extra_data": {
-                "method": request.method,
-                "path": request.url.path,
-                "client": request.client.host if request.client else "unknown"
-            }
-        }
-    )
-
-    # Process request
-    try:
-        response = await call_next(request)
-        process_time = time.time() - start_time
-
-        # Log response
-        logger.info(
-            f"Request completed: {request.method} {request.url.path} - Status: {response.status_code}",
-            extra={
-                "extra_data": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": response.status_code,
-                    "process_time": f"{process_time:.3f}s"
-                }
-            }
-        )
-
-        return response
-    except Exception as e:
-        process_time = time.time() - start_time
-        logger.error(
-            f"Request failed: {request.method} {request.url.path}",
-            extra={
-                "extra_data": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "error": str(e),
-                    "process_time": f"{process_time:.3f}s"
-                }
-            },
-            exc_info=True
-        )
-        raise
 
 # Enable CORS
 app.add_middleware(
@@ -158,94 +37,80 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-logger.info("FastAPI application initialized")
-
-
-# Request/Response models
+# Request model
 class ChatRequest(BaseModel):
     message: str
     conversation_history: List[Dict[str, str]] = []
 
 
-class ChatResponse(BaseModel):
-    response: str
-    error: str = None
-
-
-class SearchRequest(BaseModel):
-    query: str
-    num_results: int = 5
-    search_type: str = "web"  # "web" or "image"
-
-
-# Initialize agent
-agent = None
-
-
-def get_agent():
-    """Lazy initialization of the agent."""
-    global agent
-    if agent is None:
-        logger.info("Initializing chatbot agent")
-        agent = SimpleLlamaCppClient()
-        logger.info("Chatbot agent initialized successfully")
-    return agent
-
-
 @app.get("/")
 async def read_root():
     """Serve the frontend."""
-    logger.debug("Serving frontend index.html")
     return FileResponse("frontend/index.html")
 
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     """
-    Chat endpoint with REAL streaming support from LlamaCpp.
+    Chat endpoint with streaming support.
 
     Args:
-        request: ChatRequest containing the user message and conversation history
+        request: ChatRequest containing the user message
 
     Returns:
         StreamingResponse with SSE (Server-Sent Events)
     """
-    async def generate_stream():
-        """Generate streaming response from LlamaCpp."""
+    def generate_stream():
+        """Generate real token-by-token streaming response."""
         try:
-            logger.info(
-                "Processing streaming chat request",
-                extra={"extra_data": {
-                    "message_length": len(request.message),
-                    "history_length": len(request.conversation_history)
-                }}
+            logger.info(f"Processing chat request: {request.message}")
+
+            # Build messages
+            messages = []
+            messages.extend(request.conversation_history)
+            messages.append({"role": "user", "content": request.message})
+
+            # Direct streaming from LlamaCpp
+            payload = {
+                "messages": messages,
+                "temperature": Config.LLM_TEMPERATURE,
+                "max_tokens": Config.LLM_MAX_TOKENS,
+                "stream": True
+            }
+
+            logger.info(f"Calling LlamaCpp at {Config.LLAMA_CPP_URL}")
+
+            response = requests.post(
+                f"{Config.LLAMA_CPP_URL}/v1/chat/completions",
+                json=payload,
+                stream=True,
+                timeout=120
             )
+            response.raise_for_status()
 
-            agent_instance = get_agent()
-
-            # Call the agent with the message
-            system_prompt = "You are a helpful AI assistant. You can search the web and help users with various tasks."
-
-            # Use REAL streaming from LlamaCpp with conversation history
-            for chunk in agent_instance.chat_stream(
-                request.message,
-                system_prompt=system_prompt,
-                conversation_history=request.conversation_history
-            ):
-                if chunk:
-                    yield f"data: {json.dumps({'chunk': chunk, 'done': False})}\n\n"
+            # Stream tokens as they arrive
+            for line in response.iter_lines():
+                if line:
+                    line_text = line.decode('utf-8')
+                    if line_text.startswith('data: '):
+                        data_str = line_text[6:]
+                        if data_str.strip() == '[DONE]':
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+                        except json.JSONDecodeError:
+                            continue
 
             # Send completion signal
             yield f"data: {json.dumps({'chunk': '', 'done': True})}\n\n"
-
-            logger.info("Streaming chat request completed")
+            logger.info("Chat request completed")
 
         except Exception as e:
-            logger.error(
-                "Streaming chat request failed",
-                extra={"extra_data": {"error": str(e)}},
-                exc_info=True
-            )
+            logger.error(f"Chat request failed: {str(e)}", exc_info=True)
             error_msg = f"Error: {str(e)}"
             yield f"data: {json.dumps({'chunk': error_msg, 'done': True, 'error': True})}\n\n"
 
@@ -260,48 +125,9 @@ async def chat(request: ChatRequest):
     )
 
 
-@app.post("/api/search")
-async def search(request: SearchRequest):
-    """
-    Search endpoint for Google Custom Search.
-
-    Args:
-        request: SearchRequest containing query and search parameters
-
-    Returns:
-        Search results
-    """
-    try:
-        logger.info(
-            f"Processing search request: {request.search_type}",
-            extra={"extra_data": {"query": request.query, "num_results": request.num_results}}
-        )
-
-        if request.search_type == "image":
-            results = google_image_search(request.query, request.num_results)
-        else:
-            results = google_search(request.query, request.num_results)
-
-        logger.info(
-            "Search request completed",
-            extra={"extra_data": {"results_count": len(results)}}
-        )
-
-        return {"results": results}
-
-    except Exception as e:
-        logger.error(
-            "Search request failed",
-            extra={"extra_data": {"query": request.query, "error": str(e)}},
-            exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
-    logger.debug("Health check requested")
     return {
         "status": "healthy",
         "llm_url": Config.LLAMA_CPP_URL
@@ -312,17 +138,7 @@ if __name__ == "__main__":
     import uvicorn
     host, port = Config.get_server_config()
 
-    logger.info(
-        f"Starting FastAPI server",
-        extra={
-            "extra_data": {
-                "host": host,
-                "port": port,
-                "llm_url": Config.LLAMA_CPP_URL,
-                "reload": True
-            }
-        }
-    )
+    logger.info(f"Starting FastAPI server on {host}:{port}")
 
     uvicorn.run(
         "backend:app",
