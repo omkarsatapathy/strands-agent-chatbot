@@ -2,50 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0b141a">
     <title>AI Chatbot</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
         <div class="chat-container">
+            <!-- Header with mouse icon and clear chat -->
             <div class="chat-header">
-                <h1>AI Chatbot</h1>
-                <div class="status-indicator" id="status">
-                    <span class="status-dot"></span>
-                    <span class="status-text">Ready</span>
-                </div>
-            </div>
-
-            <div class="chat-messages" id="chatMessages">
-                <div class="message bot-message">
-                    <div class="message-content">
-                        <p>Hello! I'm your AI assistant. How can I help you today?</p>
+                <div class="header-content">
+                    <div class="status-indicator" id="status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Ready</span>
                     </div>
-                </div>
-            </div>
-
-            <div class="chat-input-container">
-                <div class="input-wrapper">
-                    <textarea
-                        id="messageInput"
-                        placeholder="Type your message here..."
-                        rows="1"
-                    ></textarea>
-                    <button id="sendButton" class="send-button">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+                    <div class="mouse-icon-container" id="mouseIcon">
+                        <div class="mouse-icon">🐭</div>
+                    </div>
+                    <button id="clearButton" class="icon-button" title="Clear Chat">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"></path>
                         </svg>
                     </button>
                 </div>
-                <div class="input-actions">
-                    <button id="clearButton" class="action-button">Clear Chat</button>
-                    <button id="searchButton" class="action-button">Web Search</button>
+            </div>
+
+            <!-- Chat messages area -->
+            <div class="chat-messages" id="chatMessages">
+            </div>
+
+            <!-- Input area -->
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <button id="searchButton" class="icon-button-left" title="Web Search">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                    </button>
+                    <textarea
+                        id="messageInput"
+                        placeholder="Type a message"
+                        rows="1"
+                    ></textarea>
+                    <button id="sendButton" class="send-button">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=3"></script>
 </body>
 </html>
