@@ -208,7 +208,7 @@ function updateStatus(text, isOnline) {
     statusDot.style.background = isOnline ? '#4ade80' : '#f87171';
 }
 
-// Send message with streaming support
+// Send message with SSE streaming support
 async function sendMessage() {
     const message = messageInput.value.trim();
     if (!message) return;
@@ -246,16 +246,16 @@ async function sendMessage() {
     sendButton.disabled = true;
     updateStatus('Generating...', true);
 
-    // Show typing indicator
-    const typingId = showTypingIndicator();
+    // Show status indicator (replace typing animation)
+    const statusId = showStatusIndicator('⏳ Agent is thinking...');
 
     // Get last conversation pairs (limit to MAX_CONVERSATION_HISTORY)
     const recentHistory = conversationHistory.slice(-CONFIG.MAX_CONVERSATION_HISTORY);
 
     try {
-        console.log('Sending request to:', `${API_BASE_URL}/api/chat`);
+        console.log('Starting SSE stream to:', `${API_BASE_URL}/api/chat/stream`);
 
-        const response = await fetchWithRetry(`${API_BASE_URL}/api/chat`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -266,54 +266,54 @@ async function sendMessage() {
             })
         });
 
-        console.log('Response status:', response.status);
-
         if (!response.ok) {
-            let errorText = 'Unknown error';
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                console.error('Failed to read error response:', e);
-            }
-            console.error('Error response:', errorText);
-
-            // Handle specific error codes
-            if (response.status === 429) {
-                throw new Error('Too many requests. Please wait a moment and try again.');
-            } else if (response.status === 500) {
-                throw new Error('Server error. Please try again later.');
-            } else if (response.status === 503) {
-                throw new Error('Service temporarily unavailable. Please try again later.');
-            } else {
-                throw new Error(`Request failed (${response.status}): ${errorText}`);
-            }
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            console.error('Failed to parse response JSON:', e);
-            throw new Error('Invalid response from server');
-        }
+        // Read the SSE stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        console.log('Received data:', data);
+        while (true) {
+            const { done, value } = await reader.read();
 
-        // Remove typing indicator
-        removeTypingIndicator(typingId);
+            if (done) {
+                console.log('Stream complete');
+                break;
+            }
 
-        if (data.response) {
-            console.log('Adding bot message:', data.response);
-            addMessage(data.response, 'bot');
-            conversationHistory.push({ role: 'assistant', content: data.response });
-            saveConversationHistory();
-        } else {
-            console.error('No response in data:', data);
-            showError('No response received from server');
+            // Decode chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
+
+            // Process complete SSE messages
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+
+            let eventType = 'message';
+            let eventData = '';
+
+            for (const line of lines) {
+                if (line.startsWith('event:')) {
+                    eventType = line.substring(6).trim();
+                } else if (line.startsWith('data:')) {
+                    eventData = line.substring(5).trim();
+                } else if (line === '') {
+                    // Empty line indicates end of event
+                    if (eventData) {
+                        handleStreamEvent(eventType, eventData, statusId);
+                        eventData = '';
+                        eventType = 'message';
+                    }
+                } else if (line.startsWith(':')) {
+                    // Heartbeat comment, ignore
+                    continue;
+                }
+            }
         }
 
     } catch (error) {
-        removeTypingIndicator(typingId);
+        removeStatusIndicator(statusId);
 
         // User-friendly error messages
         let errorMessage = 'Failed to get response. ';
@@ -337,6 +337,62 @@ async function sendMessage() {
         sendButton.disabled = false;
         requestInProgress = false;
         updateStatus('Ready', true);
+    }
+}
+
+// Handle SSE stream events
+function handleStreamEvent(eventType, eventData, statusId) {
+    try {
+        const data = JSON.parse(eventData);
+
+        switch (eventType) {
+            case 'connected':
+                console.log('Connected to stream');
+                updateStatusIndicator(statusId, '✅ Connected');
+                break;
+
+            case 'thinking':
+                console.log('Agent thinking:', data.status);
+                updateStatusIndicator(statusId, data.status);
+                updateStatus(data.status, true);
+                break;
+
+            case 'tool':
+                console.log('Tool called:', data);
+                const toolStatus = `${data.status} (${data.tool_count}/${data.max_tools})`;
+                updateStatusIndicator(statusId, toolStatus);
+                updateStatus(data.status, true);
+                break;
+
+            case 'done':
+                console.log('Stream done:', data);
+                removeStatusIndicator(statusId);
+                updateStatus(data.status, true);
+
+                // Add response to chat
+                if (data.response) {
+                    addMessage(data.response, 'bot');
+                    conversationHistory.push({ role: 'assistant', content: data.response });
+                    saveConversationHistory();
+                }
+                break;
+
+            case 'error':
+                console.error('Stream error:', data);
+                removeStatusIndicator(statusId);
+                showError('Error: ' + data.error);
+                break;
+
+            case 'cancelled':
+                console.log('Stream cancelled');
+                removeStatusIndicator(statusId);
+                break;
+
+            default:
+                console.log('Unknown event:', eventType, data);
+        }
+    } catch (error) {
+        console.error('Error parsing event data:', error, eventData);
     }
 }
 
@@ -624,7 +680,49 @@ function removeStreamingMessage(id) {
     }
 }
 
-// Show typing indicator
+// Show status indicator (replaces typing indicator)
+function showStatusIndicator(statusText) {
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'message bot-message status-message';
+    statusDiv.id = 'status-indicator-' + Date.now();
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+
+    const statusElement = document.createElement('div');
+    statusElement.className = 'status-text-indicator';
+    statusElement.textContent = statusText;
+
+    contentDiv.appendChild(statusElement);
+    statusDiv.appendChild(contentDiv);
+    chatMessages.appendChild(statusDiv);
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    return statusDiv.id;
+}
+
+// Update status indicator text
+function updateStatusIndicator(id, statusText) {
+    const statusDiv = document.getElementById(id);
+    if (statusDiv) {
+        const statusElement = statusDiv.querySelector('.status-text-indicator');
+        if (statusElement) {
+            statusElement.textContent = statusText;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+}
+
+// Remove status indicator
+function removeStatusIndicator(id) {
+    const indicator = document.getElementById(id);
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+// Show typing indicator (kept for backward compatibility)
 function showTypingIndicator() {
     const typingDiv = document.createElement('div');
     typingDiv.className = 'message bot-message';
