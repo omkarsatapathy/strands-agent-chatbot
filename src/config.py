@@ -27,6 +27,9 @@ class Config:
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2048"))
 
+    # Agent Limits
+    MAX_TOOL_CALLS: int = int(os.getenv("MAX_TOOL_CALLS", "5"))
+
     # Logging Configuration
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_TO_FILE: bool = os.getenv("LOG_TO_FILE", "True").lower() in ("true", "1", "yes")
