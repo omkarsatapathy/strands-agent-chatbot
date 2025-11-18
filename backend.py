@@ -3,7 +3,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
-from src.agent.chatbot_agent import create_chatbot_agent
 from src.agent.streaming_agent import create_streaming_response
 from src.database import DatabaseManager
 from pydantic import BaseModel
@@ -60,18 +59,6 @@ async def chat_stream(request: ChatRequest):
             "X-Accel-Buffering": "no",
         }
     )
-
-
-@app.post("/api/chat")
-async def chat(request: ChatRequest):
-    # Limit conversation history to last 10 messages (5 pairs of user-assistant)
-    limited_history = request.conversation_history[-10:] if len(request.conversation_history) > 10 else request.conversation_history
-
-    response_text = await create_chatbot_agent({
-        "prompt": request.message,
-        "conversation_history": limited_history
-    })
-    return {"response": response_text}
 
 
 @app.get("/api/health")

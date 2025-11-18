@@ -1,4 +1,4 @@
 """Agent package for the chatbot."""
-from .chatbot_agent import create_chatbot_agent
+from .streaming_agent import create_streaming_response
 
-__all__ = ['create_chatbot_agent']
+__all__ = ['create_streaming_response']

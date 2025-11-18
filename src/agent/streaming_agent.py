@@ -82,13 +82,13 @@ async def create_streaming_response(
         yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
 
         # Send initial thinking event
-        yield f"event: thinking\ndata: {json.dumps({'status': '⏳ Agent is thinking...'})}\n\n"
+        yield f"event: thinking\ndata: {json.dumps({'status': 'Thinking...'})}\n\n"
 
         # Map tool names to display names with emojis
         tool_display_names = {
-            'calculator': '🧮 calculator',
-            'google_search_with_context': '🌐 google_search_with_context',
-            'get_current_datetime_ist': '🕐 get_current_datetime_ist'
+            'calculator': '🧮 Calculating',
+            'google_search_with_context': '🌐 Searching the web',
+            'get_current_datetime_ist': '🕐 Getting current time'
         }
 
         # Track state
@@ -120,7 +120,7 @@ async def create_streaming_response(
                     display_name = tool_display_names.get(tool_name, f'🔧 {tool_name}')
 
                     tool_data = {
-                        'status': f'Using tool: {display_name}',
+                        'status': display_name,
                         'tool_name': tool_name,
                         'display_name': display_name,
                         'tool_count': tool_count,
@@ -133,11 +133,11 @@ async def create_streaming_response(
             # Handle event loop lifecycle events
             elif event.get("init_event_loop", False):
                 logger.info("🤖 Agent initialized...")
-                yield f"event: thinking\ndata: {json.dumps({'status': 'Agent initialized...'})}\n\n"
+                yield f"event: thinking\ndata: {json.dumps({'status': 'Getting ready...'})}\n\n"
 
             elif event.get("start_event_loop", False):
                 logger.info("⚙️  Agent is processing...")
-                yield f"event: thinking\ndata: {json.dumps({'status': 'Agent is processing...'})}\n\n"
+                yield f"event: thinking\ndata: {json.dumps({'status': 'Processing...'})}\n\n"
 
             # Send periodic heartbeat to keep connection alive
             if time.time() - last_heartbeat > 15:
@@ -146,7 +146,7 @@ async def create_streaming_response(
 
         # Send completion event with full response
         completion_data = {
-            'status': f'✅ Complete! Used {tool_count} tools' if tool_count > 0 else '✅ Complete!',
+            'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
             'response': complete_response,
             'tool_count': tool_count
         }

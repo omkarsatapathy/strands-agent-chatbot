@@ -527,6 +527,40 @@ async function sendMessage() {
     }
 }
 
+// Track last status update time for minimum display duration
+let lastStatusUpdateTime = 0;
+let statusUpdateQueue = [];
+let isProcessingStatusQueue = false;
+
+// Process status updates with minimum display time
+async function processStatusUpdate(statusId, statusText) {
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastStatusUpdateTime;
+    const minDisplayTime = 1500; // 1.5 seconds
+
+    if (timeSinceLastUpdate < minDisplayTime) {
+        // Wait for remaining time
+        await new Promise(resolve => setTimeout(resolve, minDisplayTime - timeSinceLastUpdate));
+    }
+
+    updateStatusIndicator(statusId, statusText);
+    lastStatusUpdateTime = Date.now();
+}
+
+// Queue status updates to ensure minimum display time
+async function queueStatusUpdate(statusId, statusText) {
+    statusUpdateQueue.push({ statusId, statusText });
+
+    if (!isProcessingStatusQueue) {
+        isProcessingStatusQueue = true;
+        while (statusUpdateQueue.length > 0) {
+            const { statusId, statusText } = statusUpdateQueue.shift();
+            await processStatusUpdate(statusId, statusText);
+        }
+        isProcessingStatusQueue = false;
+    }
+}
+
 // Handle SSE stream events
 async function handleStreamEvent(eventType, eventData, statusId) {
     try {
@@ -535,20 +569,20 @@ async function handleStreamEvent(eventType, eventData, statusId) {
         switch (eventType) {
             case 'connected':
                 console.log('Connected to stream');
-                updateStatusIndicator(statusId, '✅ Connected');
+                await queueStatusUpdate(statusId, '✅ Connected');
                 break;
 
             case 'thinking':
                 console.log('Agent thinking:', data.status);
-                updateStatusIndicator(statusId, data.status);
+                await queueStatusUpdate(statusId, data.status);
                 updateStatus(data.status, true);
                 break;
 
             case 'tool':
                 console.log('Tool called:', data);
-                const toolStatus = `${data.status} (${data.tool_count}/${data.max_tools})`;
-                updateStatusIndicator(statusId, toolStatus);
-                updateStatus(data.status, true);
+                const toolStatus = `${data.display_name} (${data.tool_count}/${data.max_tools})`;
+                await queueStatusUpdate(statusId, toolStatus);
+                updateStatus(data.display_name, true);
                 break;
 
             case 'done':
