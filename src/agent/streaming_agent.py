@@ -62,6 +62,7 @@ async def create_streaming_response(
             })
 
         logger.info(f"Starting streaming agent with {len(history_messages)} history messages")
+        logger.info(f"Total message: \n\n{history_messages}")
         logger.info(f"📩 User message: {message}")
 
         # Create hook for tool limit enforcement
