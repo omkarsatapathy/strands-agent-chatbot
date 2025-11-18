@@ -48,6 +48,7 @@ def google_search_with_context(query: str) -> Dict[str, Any]:
         )
 
         response.raise_for_status()
+    
         data = response.json()
 
         logger.debug(
