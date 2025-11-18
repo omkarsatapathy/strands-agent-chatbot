@@ -1,0 +1,72 @@
+/* Document Upload Styles */
+.document-area {
+    padding: 12px;
+    background: rgba(11, 20, 26, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.document-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.document-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(31, 44, 52, 0.8);
+    border: 1px solid rgba(83, 189, 235, 0.3);
+    border-radius: 16px;
+    font-size: 13px;
+    color: #d1d7db;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.document-item:hover {
+    background: rgba(31, 44, 52, 1);
+    border-color: rgba(83, 189, 235, 0.5);
+    transform: translateY(-1px);
+}
+
+.document-item svg {
+    flex-shrink: 0;
+}
+
+.document-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.document-size {
+    color: #8696a0;
+    font-size: 11px;
+}
+
+.upload-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(31, 44, 52, 0.6);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.upload-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #53bdeb, #2563eb);
+    transition: width 0.3s;
+}

@@ -1,0 +1,7 @@
+/* Main CSS - Imports all modular stylesheets */
+@import "base.css";
+@import "sidebar.css";
+@import "chat.css";
+@import "components.css";
+@import "documents.css";
+@import "responsive.css";
