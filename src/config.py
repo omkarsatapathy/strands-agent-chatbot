@@ -16,8 +16,11 @@ class Config:
     LLAMA_CPP_URL: str = os.getenv("LLAMA_CPP_URL", "http://127.0.0.1:8033")
 
     # Google Custom Search API
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    GOOGLE_SEARCH_API_KEY: str = os.getenv("GOOGLE_SEARCH_API_KEY", "")
     GOOGLE_SEARCH_ENGINE_ID: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
+
+    # Google Gemini API Configuration
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # OpenAI API Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
@@ -81,7 +84,7 @@ Remember: You are here to assist, inform, and make the user's experience as smoo
     @classmethod
     def get_google_credentials(cls) -> tuple[str, str]:
         """Get Google API credentials."""
-        return cls.GOOGLE_API_KEY, cls.GOOGLE_SEARCH_ENGINE_ID
+        return cls.GOOGLE_SEARCH_API_KEY, cls.GOOGLE_SEARCH_ENGINE_ID
 
     @classmethod
     def get_server_config(cls) -> tuple[str, int]:

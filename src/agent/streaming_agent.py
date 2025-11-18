@@ -7,9 +7,8 @@ This implementation follows Strands best practices:
 """
 import json
 import time
-from typing import List, Dict, AsyncGenerator
+from typing import List, Dict, AsyncGenerator, Optional
 from strands import Agent
-from strands.models.llamacpp import LlamaCppModel
 from strands_tools import calculator
 from ..config import Config
 from ..logging_config import get_logger
@@ -17,6 +16,7 @@ from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
 from ..tools.document_rag import query_documents
 from .callback_handler import ToolLimitHook
+from .model_providers import ModelProviderFactory
 
 logger = get_logger("chatbot.streaming")
 
@@ -24,7 +24,8 @@ logger = get_logger("chatbot.streaming")
 async def create_streaming_response(
     message: str,
     conversation_history: List[Dict[str, str]],
-    session_id: str = None
+    session_id: str = None,
+    model_provider: Optional[str] = None
 ) -> AsyncGenerator[str, None]:
     """
     Create async generator for streaming agent responses with tool execution updates.
@@ -37,21 +38,33 @@ async def create_streaming_response(
     Args:
         message: User's message
         conversation_history: List of previous conversation messages
+        session_id: Optional session ID for document queries
+        model_provider: Model provider to use ('llamacpp', 'gemini', 'openai')
 
     Yields:
         SSE-formatted strings with event updates
     """
     try:
-        # Initialize model
-        model = LlamaCppModel(
-            base_url=Config.LLAMA_CPP_URL,
-            model_id="default",
-            params={
-                "max_tokens": Config.LLM_MAX_TOKENS,
-                "temperature": Config.LLM_TEMPERATURE,
-                "repeat_penalty": 1.1,
-            }
-        )
+        # Initialize model using factory
+        if model_provider:
+            logger.info(f"Using model provider: {model_provider}")
+            try:
+                provider = ModelProviderFactory.create_provider(model_provider)
+                model = provider.get_model()
+                logger.info(f"✅ Model provider '{model_provider}' initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize '{model_provider}': {e}")
+                # Fall back to default provider
+                logger.info("Falling back to default provider")
+                default_provider_name = ModelProviderFactory.get_default_provider()
+                provider = ModelProviderFactory.create_provider(default_provider_name)
+                model = provider.get_model()
+        else:
+            # Use default provider
+            default_provider_name = ModelProviderFactory.get_default_provider()
+            logger.info(f"Using default model provider: {default_provider_name}")
+            provider = ModelProviderFactory.create_provider(default_provider_name)
+            model = provider.get_model()
 
         # Convert conversation history to Strands format
         history_messages = []

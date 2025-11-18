@@ -340,6 +340,12 @@ export async function sendMessage() {
     try {
         console.log('Starting SSE stream to:', `${API_BASE_URL}/api/chat/stream`);
 
+        // Get selected model provider
+        const modelProviderSelect = document.getElementById('modelProvider');
+        const modelProvider = modelProviderSelect ? modelProviderSelect.value : null;
+
+        console.log('Using model provider:', modelProvider || 'default');
+
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
             headers: {
@@ -348,7 +354,8 @@ export async function sendMessage() {
             body: JSON.stringify({
                 message: message,
                 conversation_history: recentHistory,
-                session_id: sessionManager.getCurrentSessionId()
+                session_id: sessionManager.getCurrentSessionId(),
+                model_provider: modelProvider
             })
         });
 

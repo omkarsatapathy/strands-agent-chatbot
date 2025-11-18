@@ -68,3 +68,19 @@ export async function checkServerHealth() {
         return { isOnline: false, message: 'Offline' };
     }
 }
+
+// Get available model providers
+export async function getModelProviders() {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/api/models/providers`, {}, 5000);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error('Failed to get model providers');
+            return { providers: [], default: null };
+        }
+    } catch (error) {
+        console.error('Error getting model providers:', error);
+        return { providers: [], default: null };
+    }
+}

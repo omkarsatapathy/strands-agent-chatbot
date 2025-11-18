@@ -1,6 +1,6 @@
 // Main Entry Point
 import { API_BASE_URL } from './config.js';
-import { checkServerHealth } from './modules/api.js';
+import { checkServerHealth, getModelProviders } from './modules/api.js';
 import {
     initializeUIElements,
     updateStatus,
@@ -206,6 +206,81 @@ let sessionManager = null;
 // Global DOM elements
 let messageInput, sendButton, clearButton, searchButton;
 let sidebarToggle, newChatButton, uploadButton, fileInput;
+let modelProviderSelect;
+
+// Initialize model providers dropdown
+async function initializeModelProviders() {
+    try {
+        const data = await getModelProviders();
+        const providers = data.providers || [];
+        const defaultProvider = data.default;
+
+        if (!modelProviderSelect) {
+            console.error('Model provider select element not found');
+            return;
+        }
+
+        // Clear existing options
+        modelProviderSelect.innerHTML = '';
+
+        if (providers.length === 0) {
+            modelProviderSelect.innerHTML = '<option value="">No providers available</option>';
+            modelProviderSelect.disabled = true;
+            return;
+        }
+
+        // Add available providers
+        providers.forEach(provider => {
+            const option = document.createElement('option');
+            option.value = provider.name;
+            option.textContent = provider.display_name;
+            option.disabled = !provider.available;
+
+            if (!provider.available) {
+                option.textContent += ' (Not configured)';
+            }
+
+            if (provider.name === defaultProvider) {
+                option.selected = true;
+            }
+
+            modelProviderSelect.appendChild(option);
+        });
+
+        // Store in localStorage for persistence
+        modelProviderSelect.addEventListener('change', () => {
+            localStorage.setItem('selectedModelProvider', modelProviderSelect.value);
+            console.log('Model provider changed to:', modelProviderSelect.value);
+        });
+
+        // Restore from localStorage if available
+        const savedProvider = localStorage.getItem('selectedModelProvider');
+        if (savedProvider) {
+            const option = Array.from(modelProviderSelect.options).find(
+                opt => opt.value === savedProvider && !opt.disabled
+            );
+            if (option) {
+                modelProviderSelect.value = savedProvider;
+            }
+        }
+
+        console.log('Model providers initialized:', providers);
+    } catch (error) {
+        console.error('Failed to initialize model providers:', error);
+        if (modelProviderSelect) {
+            modelProviderSelect.innerHTML = '<option value="">Error loading providers</option>';
+            modelProviderSelect.disabled = true;
+        }
+    }
+}
+
+// Get currently selected model provider
+export function getSelectedModelProvider() {
+    if (!modelProviderSelect || !modelProviderSelect.value) {
+        return null;
+    }
+    return modelProviderSelect.value;
+}
 
 // Initialize application
 async function initializeApp() {
@@ -235,6 +310,11 @@ async function initializeApp() {
         const documentElements = initializeDocumentElements();
         uploadButton = documentElements.uploadButton;
         fileInput = documentElements.fileInput;
+
+        // Initialize model provider selector
+        console.log('[Main] Initializing model provider selector...');
+        modelProviderSelect = document.getElementById('modelProvider');
+        await initializeModelProviders();
 
         // Check server health
         console.log('[Main] Checking server health...');
