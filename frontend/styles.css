@@ -848,11 +848,13 @@ body {
     font-size: 13px;
     color: #d1d7db;
     transition: all 0.2s;
+    cursor: pointer;
 }
 
 .document-item:hover {
     background: rgba(31, 44, 52, 1);
     border-color: rgba(83, 189, 235, 0.5);
+    transform: translateY(-1px);
 }
 
 .document-item svg {
@@ -860,7 +862,7 @@ body {
 }
 
 .document-name {
-    max-width: 200px;
+    max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -893,4 +895,88 @@ body {
     height: 100%;
     background: linear-gradient(90deg, #53bdeb, #2563eb);
     transition: width 0.3s;
+}
+
+/* Toast Notification */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(31, 44, 52, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(83, 189, 235, 0.3);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    animation: slideInRight 0.3s ease-out;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+.toast-notification.success {
+    border-color: rgba(74, 222, 128, 0.4);
+}
+
+.toast-notification.error {
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+.toast-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+    color: #d1d7db;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #8696a0;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #d1d7db;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+.toast-notification.hiding {
+    animation: slideOutRight 0.3s ease-in forwards;
 }

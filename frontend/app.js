@@ -580,7 +580,7 @@ async function handleStreamEvent(eventType, eventData, statusId) {
         switch (eventType) {
             case 'connected':
                 console.log('Connected to stream');
-                await queueStatusUpdate(statusId, '✅ Connected');
+                await queueStatusUpdate(statusId, '⚡ On it...');
                 break;
 
             case 'thinking':
@@ -1075,14 +1075,11 @@ async function handleFileUpload(event) {
 
         removeStatusIndicator(statusId);
 
-        // Show success message
-        showError(`✅ ${result.message}`, 'success');
-
-        // Reload documents for this session
+        // Reload documents for this session first
         await loadSessionDocuments(currentSessionId);
 
-        // Add a system message
-        addMessage(`Document uploaded: ${file.name} (${formatFileSize(file.size)})`, 'bot');
+        // Show success toast notification
+        showToast(`Document uploaded successfully: ${file.name}`, 'success');
 
         updateStatus('Ready', true);
 
@@ -1131,6 +1128,7 @@ function displayDocuments(documents) {
     documents.forEach(doc => {
         const docItem = document.createElement('div');
         docItem.className = 'document-item';
+        docItem.title = `Click to show in folder: ${doc.filename}`;
         docItem.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -1139,6 +1137,15 @@ function displayDocuments(documents) {
             <span class="document-name" title="${doc.filename}">${doc.filename}</span>
             <span class="document-size">${formatFileSize(doc.file_size)}</span>
         `;
+
+        // Click handler to show in Finder/Explorer
+        docItem.addEventListener('click', () => {
+            showToast(`File location: ${doc.file_path}`, 'success');
+            // Note: Opening file manager is restricted in browsers for security
+            // This would require a backend endpoint or desktop app integration
+            console.log('Document path:', doc.file_path);
+        });
+
         documentList.appendChild(docItem);
     });
 }
@@ -1150,6 +1157,39 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Show toast notification
+function showToast(message, type = 'success') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type}`;
+
+    const icon = type === 'success' ? '✅' : '❌';
+
+    toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">${message}</div>
+        <button class="toast-close">OK</button>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Close button handler
+    const closeBtn = toast.querySelector('.toast-close');
+    const closeToast = () => {
+        toast.classList.add('hiding');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    };
+
+    closeBtn.addEventListener('click', closeToast);
+
+    // Auto-dismiss after 3 seconds
+    setTimeout(closeToast, 3000);
 }
 
 // Cleanup on page unload
