@@ -257,6 +257,35 @@ async def get_session_documents(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/documents/show-in-folder")
+async def show_document_in_folder(request: dict):
+    """Open file in Finder/Explorer."""
+    import subprocess
+    import platform
+
+    try:
+        file_path = request.get('file_path')
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        system = platform.system()
+
+        if system == 'Darwin':  # macOS
+            subprocess.run(['open', '-R', file_path])
+        elif system == 'Windows':
+            subprocess.run(['explorer', '/select,', os.path.abspath(file_path)])
+        elif system == 'Linux':
+            # Open parent directory
+            subprocess.run(['xdg-open', os.path.dirname(os.path.abspath(file_path))])
+
+        logger.info(f"Opened file in folder: {file_path}")
+        return {"success": True, "message": "File opened in folder"}
+
+    except Exception as e:
+        logger.error(f"Error opening file in folder: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     host, port = Config.get_server_config()

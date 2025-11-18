@@ -1139,11 +1139,27 @@ function displayDocuments(documents) {
         `;
 
         // Click handler to show in Finder/Explorer
-        docItem.addEventListener('click', () => {
-            showToast(`File location: ${doc.file_path}`, 'success');
-            // Note: Opening file manager is restricted in browsers for security
-            // This would require a backend endpoint or desktop app integration
-            console.log('Document path:', doc.file_path);
+        docItem.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/documents/show-in-folder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_path: doc.file_path
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('📂 Opened in Finder', 'success');
+                } else {
+                    throw new Error('Failed to open folder');
+                }
+            } catch (error) {
+                console.error('Error opening folder:', error);
+                showToast(`File location: ${doc.file_path}`, 'success');
+            }
         });
 
         documentList.appendChild(docItem);

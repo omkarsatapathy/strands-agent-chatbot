@@ -185,6 +185,29 @@ class DocumentRAGManager:
                 }}
             )
 
+            # Delete the uploads directory after successful indexing
+            # Vector store has been created, so the uploaded files are no longer needed
+            try:
+                if self.upload_dir.exists():
+                    import shutil
+                    shutil.rmtree(self.upload_dir)
+                    logger.info(
+                        f"Deleted upload directory after indexing",
+                        extra={"extra_data": {
+                            "session_id": self.session_id,
+                            "upload_dir": str(self.upload_dir)
+                        }}
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete upload directory",
+                    extra={"extra_data": {
+                        "session_id": self.session_id,
+                        "upload_dir": str(self.upload_dir),
+                        "error": str(e)
+                    }}
+                )
+
             return {
                 "success": True,
                 "num_documents": len(documents),
