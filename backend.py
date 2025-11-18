@@ -289,4 +289,11 @@ async def show_document_in_folder(request: dict):
 if __name__ == "__main__":
     import uvicorn
     host, port = Config.get_server_config()
-    uvicorn.run("backend:app", host=host, port=port, reload=True, reload_dirs=[".", "src", "frontend"])
+    uvicorn.run(
+        "backend:app",
+        host=host,
+        port=port,
+        reload=True,
+        reload_dirs=[".", "src", "frontend"],
+        log_level="warning"  # Reduce log verbosity (only warnings and errors)
+    )

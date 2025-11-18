@@ -182,3 +182,6 @@ class SessionManager {
         }
     }
 }
+
+// Expose SessionManager to window for use in ES6 modules
+window.SessionManager = SessionManager;

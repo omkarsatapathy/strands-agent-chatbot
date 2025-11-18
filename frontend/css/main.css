@@ -1,0 +1,19 @@
+/* Main CSS - Imports all modular stylesheets in the correct order */
+
+/* 1. Base styles - Global resets and body styles */
+@import 'base.css';
+
+/* 2. Sidebar - Navigation and session list */
+@import 'sidebar.css';
+
+/* 3. Chat - Main chat interface, messages, and input */
+@import 'chat.css';
+
+/* 4. Components - Reusable UI components (buttons, indicators, toasts) */
+@import 'components.css';
+
+/* 5. Documents - Document upload area and related styles */
+@import 'documents.css';
+
+/* 6. Responsive - Media queries for mobile and tablet devices */
+@import 'responsive.css';

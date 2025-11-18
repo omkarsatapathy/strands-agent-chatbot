@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Test</title>
+</head>
+<body>
+    <h1>Testing ES6 Modules</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        import { API_BASE_URL, CONFIG } from '/static/js/config.js';
+
+        console.log('Config loaded:', API_BASE_URL, CONFIG);
+        document.getElementById('output').innerHTML = `
+            <p>✅ Config loaded successfully!</p>
+            <p>API_BASE_URL: ${API_BASE_URL}</p>
+            <p>CONFIG: ${JSON.stringify(CONFIG, null, 2)}</p>
+        `;
+    </script>
+
+    <script>
+        window.addEventListener('error', (e) => {
+            console.error('Error:', e);
+            document.getElementById('output').innerHTML += `<p style="color: red;">❌ Error: ${e.message}</p>`;
+        });
+    </script>
+</body>
+</html>

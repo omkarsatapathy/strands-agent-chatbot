@@ -1,0 +1,190 @@
+/* Button and icon styles */
+.icon-button {
+    background: transparent;
+    border: none;
+    color: #8696a0;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #d9dee2;
+}
+
+.icon-button:active {
+    transform: scale(0.9);
+}
+
+/* Typing indicator */
+.typing-indicator {
+    display: flex;
+    gap: 3px;
+    padding: 10px 12px;
+}
+
+.typing-indicator span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #8696a0;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+}
+
+/* Error and success messages */
+.error-message {
+    background: rgba(255, 77, 77, 0.15);
+    color: #ff6b6b;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 8px 0;
+    font-size: 13px;
+    animation: messageSlideIn 0.3s ease-out;
+    border-left: 3px solid #ff6b6b;
+}
+
+.success-message {
+    background: rgba(37, 211, 102, 0.15);
+    color: #25d366;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 8px 0;
+    font-size: 13px;
+    animation: messageSlideIn 0.3s ease-out;
+    border-left: 3px solid #25d366;
+}
+
+/* Loading spinner for better UX */
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #2563eb;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Toast Notification */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(31, 44, 52, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(83, 189, 235, 0.3);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    animation: slideInRight 0.3s ease-out;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+.toast-notification.success {
+    border-color: rgba(74, 222, 128, 0.4);
+}
+
+.toast-notification.error {
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+.toast-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+    color: #d1d7db;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #8696a0;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #d1d7db;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+.toast-notification.hiding {
+    animation: slideOutRight 0.3s ease-in forwards;
+}
