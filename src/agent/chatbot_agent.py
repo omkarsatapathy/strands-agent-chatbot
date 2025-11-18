@@ -6,7 +6,6 @@ from ..config import Config
 from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
-from .callback_handler import ToolLimitCallbackHandler, ToolLimitHook
 
 logger = get_logger("chatbot.agent")
 
@@ -29,6 +28,7 @@ async def create_chatbot_agent(paylaod) -> str:
         params={
             "max_tokens": Config.LLM_MAX_TOKENS,
             "temperature": Config.LLM_TEMPERATURE,
+
             "repeat_penalty": 1.1,
         }
     )
@@ -50,20 +50,13 @@ async def create_chatbot_agent(paylaod) -> str:
 
         logger.info(f"Initializing agent with {len(history_messages)} history messages")
 
-        # Create hook to enforce tool call limit
-        tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
-
-        # Create callback handler for tracking
-        callback_handler = ToolLimitCallbackHandler(max_calls=Config.MAX_TOOL_CALLS)
-
-        # Initialize agent with conversation history, hook, and callback handler
+        # Initialize agent with conversation history
         agent = Agent(
             model=model,
             tools=[calculator, google_search_with_context, get_current_datetime_ist],
             system_prompt=Config.get_system_prompt(),
-            messages=history_messages,
-            hooks=[tool_limit_hook],
-            callback_handler=callback_handler
+            messages=history_messages, 
+            verbose=True
         )
 
         # Invoke agent with current prompt

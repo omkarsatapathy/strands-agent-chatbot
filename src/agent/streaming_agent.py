@@ -62,6 +62,7 @@ async def create_streaming_response(
             })
 
         logger.info(f"Starting streaming agent with {len(history_messages)} history messages")
+        logger.info(f"📩 User message: {message}")
 
         # Create hook for tool limit enforcement
         tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
@@ -73,6 +74,7 @@ async def create_streaming_response(
             system_prompt=Config.get_system_prompt(),
             messages=history_messages,
             hooks=[tool_limit_hook],
+            # verbose = True,
             callback_handler=None  # No callback handler needed with stream_async
         )
 
@@ -126,13 +128,15 @@ async def create_streaming_response(
                     }
 
                     yield f"event: tool\ndata: {json.dumps(tool_data)}\n\n"
-                    logger.info(f"Tool #{tool_count}: {tool_name}")
+                    logger.info(f"🔧 Tool #{tool_count}/{Config.MAX_TOOL_CALLS}: {display_name}")
 
             # Handle event loop lifecycle events
             elif event.get("init_event_loop", False):
+                logger.info("🤖 Agent initialized...")
                 yield f"event: thinking\ndata: {json.dumps({'status': 'Agent initialized...'})}\n\n"
 
             elif event.get("start_event_loop", False):
+                logger.info("⚙️  Agent is processing...")
                 yield f"event: thinking\ndata: {json.dumps({'status': 'Agent is processing...'})}\n\n"
 
             # Send periodic heartbeat to keep connection alive
@@ -147,7 +151,8 @@ async def create_streaming_response(
             'tool_count': tool_count
         }
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
-        logger.info(f"Streaming completed. Tools used: {tool_count}")
+        logger.info(f"✅ Streaming completed. Tools used: {tool_count}")
+        logger.info(f"📝 Response: {complete_response}")
 
     except Exception as e:
         logger.error(f"Streaming error: {str(e)}", exc_info=True)

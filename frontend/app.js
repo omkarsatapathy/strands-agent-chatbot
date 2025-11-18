@@ -7,7 +7,7 @@ const CONFIG = {
     RETRY_DELAY: 1000, // ms
     REQUEST_TIMEOUT: 60000, // 60 seconds
     HEALTH_CHECK_INTERVAL: 30000, // 30 seconds
-    MAX_CONVERSATION_HISTORY: 20,
+    MAX_CONVERSATION_HISTORY: 10,  // Limit to 10 messages (matches backend)
     AUTO_RECONNECT: true
 };
 
@@ -57,10 +57,12 @@ function initializeDOMElements() {
 
 // Start periodic health checks
 function startHealthCheckInterval() {
+    // Disabled periodic health checks to reduce server load
+    // Health check will only run on page load and when network status changes
     if (healthCheckInterval) {
         clearInterval(healthCheckInterval);
+        healthCheckInterval = null;
     }
-    healthCheckInterval = setInterval(checkServerHealth, CONFIG.HEALTH_CHECK_INTERVAL);
 }
 
 // Setup offline/online detection
@@ -111,19 +113,22 @@ function autoResizeTextarea() {
 // Load conversation history from localStorage
 function loadConversationHistory() {
     try {
-        const saved = localStorage.getItem('conversationHistory');
-        if (saved) {
-            conversationHistory = JSON.parse(saved);
-            console.log('Loaded conversation history:', conversationHistory.length, 'messages');
-        }
+        // Clear history on page load/refresh - start fresh
+        conversationHistory = [];
+        localStorage.removeItem('conversationHistory');
+        console.log('Starting fresh - conversation history cleared');
     } catch (error) {
-        console.error('Failed to load conversation history:', error);
+        console.error('Failed to clear conversation history:', error);
     }
 }
 
 // Save conversation history to localStorage
 function saveConversationHistory() {
     try {
+        // Keep only last 10 messages before saving
+        if (conversationHistory.length > CONFIG.MAX_CONVERSATION_HISTORY) {
+            conversationHistory = conversationHistory.slice(-CONFIG.MAX_CONVERSATION_HISTORY);
+        }
         localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
     } catch (error) {
         console.error('Failed to save conversation history:', error);

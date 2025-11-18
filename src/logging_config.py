@@ -103,12 +103,18 @@ def setup_logging(
     logger.setLevel(getattr(logging, log_level.upper()))
     logger.handlers.clear()  # Clear existing handlers
 
+    # Also configure Strands logger to show verbose output
+    strands_logger = logging.getLogger("strands")
+    strands_logger.setLevel(logging.WARNING)  # Use WARNING to hide most internal logs, DEBUG for full details
+    strands_logger.handlers.clear()
+
     # Console handler with colored output
     if log_to_console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.DEBUG)
         console_handler.setFormatter(ColoredConsoleFormatter())
         logger.addHandler(console_handler)
+        strands_logger.addHandler(console_handler)
 
     # File handler with JSON structured logging
     if log_to_file:
@@ -118,6 +124,7 @@ def setup_logging(
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(StructuredFormatter())
         logger.addHandler(file_handler)
+        strands_logger.addHandler(file_handler)
 
         # Also create a latest.log symlink/copy
         latest_log = logs_dir / "latest.log"
@@ -125,6 +132,7 @@ def setup_logging(
         latest_handler.setLevel(logging.DEBUG)
         latest_handler.setFormatter(StructuredFormatter())
         logger.addHandler(latest_handler)
+        strands_logger.addHandler(latest_handler)
 
     return logger
 
