@@ -11,6 +11,31 @@
 </head>
 <body>
     <div class="container">
+        <!-- Sidebar for chat history -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Chat History</h2>
+                <button id="newChatButton" class="new-chat-button" title="New Chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="session-list" id="sessionList">
+                <!-- Session items will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Toggle button for mobile -->
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+
         <div class="chat-container">
             <!-- Header with mouse icon and clear chat -->
             <div class="chat-header">
@@ -59,6 +84,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=3"></script>
+    <script src="/static/session-manager.js"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 </html>

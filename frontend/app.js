@@ -13,6 +13,7 @@ const CONFIG = {
 
 // DOM Elements
 let chatMessages, messageInput, sendButton, clearButton, searchButton, statusText, statusDot, mouseIcon;
+let sidebar, sessionList, sidebarToggle, newChatButton;
 
 // Conversation history
 let conversationHistory = [];
@@ -23,8 +24,11 @@ let isOnline = false;
 let requestInProgress = false;
 let messageCount = 0;
 
+// Session management
+let sessionManager = null;
+
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     try {
         initializeDOMElements();
         checkServerHealth();
@@ -32,7 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
         autoResizeTextarea();
         startHealthCheckInterval();
         setupOfflineDetection();
-        loadConversationHistory();
+
+        // Initialize session manager
+        sessionManager = new SessionManager(API_BASE_URL);
+
+        // Load sessions and create new session if none exists
+        await initializeSessions();
     } catch (error) {
         console.error('Initialization error:', error);
         showError('Failed to initialize application. Please refresh the page.');
@@ -49,6 +58,10 @@ function initializeDOMElements() {
     statusText = document.querySelector('.status-text');
     statusDot = document.querySelector('.status-dot');
     mouseIcon = document.getElementById('mouseIcon');
+    sidebar = document.getElementById('sidebar');
+    sessionList = document.getElementById('sessionList');
+    sidebarToggle = document.getElementById('sidebarToggle');
+    newChatButton = document.getElementById('newChatButton');
 
     if (!chatMessages || !messageInput || !sendButton || !statusText || !statusDot || !mouseIcon) {
         throw new Error('Required DOM elements not found');
@@ -89,8 +102,10 @@ function setupEventListeners() {
             sendMessage();
         }
     });
-    if (clearButton) clearButton.addEventListener('click', clearChat);
+    if (clearButton) clearButton.addEventListener('click', createNewChat);
     if (searchButton) searchButton.addEventListener('click', performWebSearch);
+    if (newChatButton) newChatButton.addEventListener('click', createNewChat);
+    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
     messageInput.addEventListener('input', autoResizeTextarea);
 
     // Prevent zoom on double-tap for iOS
@@ -110,28 +125,165 @@ function autoResizeTextarea() {
     messageInput.style.height = messageInput.scrollHeight + 'px';
 }
 
-// Load conversation history from localStorage
-function loadConversationHistory() {
+// ============= Session Management Functions =============
+
+// Initialize sessions
+async function initializeSessions() {
     try {
-        // Clear history on page load/refresh - start fresh
-        conversationHistory = [];
-        localStorage.removeItem('conversationHistory');
-        console.log('Starting fresh - conversation history cleared');
+        await loadSessions();
+
+        // Create a new session if none exists
+        if (!sessionManager.getCurrentSessionId()) {
+            await createNewChat();
+        }
     } catch (error) {
-        console.error('Failed to clear conversation history:', error);
+        console.error('Failed to initialize sessions:', error);
+        showError('Failed to load chat history');
     }
 }
 
-// Save conversation history to localStorage
-function saveConversationHistory() {
+// Load all sessions from backend
+async function loadSessions() {
     try {
-        // Keep only last 10 messages before saving
-        if (conversationHistory.length > CONFIG.MAX_CONVERSATION_HISTORY) {
-            conversationHistory = conversationHistory.slice(-CONFIG.MAX_CONVERSATION_HISTORY);
-        }
-        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+        const sessions = await sessionManager.listSessions();
+        renderSessions(sessions);
     } catch (error) {
-        console.error('Failed to save conversation history:', error);
+        console.error('Failed to load sessions:', error);
+    }
+}
+
+// Render sessions in sidebar
+function renderSessions(sessions) {
+    if (!sessionList) return;
+
+    sessionList.innerHTML = '';
+
+    if (sessions.length === 0) {
+        sessionList.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0; font-size: 14px;">No chat history yet</div>';
+        return;
+    }
+
+    sessions.forEach(session => {
+        const sessionItem = document.createElement('div');
+        sessionItem.className = 'session-item';
+        if (session.session_id === sessionManager.getCurrentSessionId()) {
+            sessionItem.classList.add('active');
+        }
+
+        sessionItem.innerHTML = `
+            <div style="flex: 1; min-width: 0;">
+                <div class="session-title">${session.title}</div>
+                <div class="session-date">${sessionManager.formatDate(session.updated_at)}</div>
+            </div>
+            <button class="session-delete" title="Delete chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                </svg>
+            </button>
+        `;
+
+        // Click to load session
+        sessionItem.addEventListener('click', async (e) => {
+            if (!e.target.closest('.session-delete')) {
+                await loadSession(session.session_id);
+            }
+        });
+
+        // Delete button
+        const deleteBtn = sessionItem.querySelector('.session-delete');
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm('Delete this chat?')) {
+                await deleteSessionAndUpdate(session.session_id);
+            }
+        });
+
+        sessionList.appendChild(sessionItem);
+    });
+}
+
+// Load a specific session
+async function loadSession(sessionId) {
+    try {
+        const sessionData = await sessionManager.getSession(sessionId, true);
+
+        // Set as current session
+        sessionManager.setCurrentSessionId(sessionId);
+
+        // Clear chat display
+        chatMessages.innerHTML = '';
+        conversationHistory = [];
+
+        // Load messages
+        if (sessionData.messages && sessionData.messages.length > 0) {
+            sessionData.messages.forEach(msg => {
+                addMessage(msg.content, msg.role === 'user' ? 'user' : 'bot');
+                conversationHistory.push({ role: msg.role, content: msg.content });
+            });
+        }
+
+        // Update UI
+        await loadSessions(); // Refresh sidebar to show active session
+        closeSidebarOnMobile();
+
+        console.log('Loaded session:', sessionId);
+    } catch (error) {
+        console.error('Failed to load session:', error);
+        showError('Failed to load chat session');
+    }
+}
+
+// Create a new chat session
+async function createNewChat() {
+    try {
+        // Create new session
+        const session = await sessionManager.createSession('New Chat');
+
+        // Clear current chat
+        chatMessages.innerHTML = '';
+        conversationHistory = [];
+
+        // Reload sessions
+        await loadSessions();
+
+        // Close sidebar on mobile
+        closeSidebarOnMobile();
+
+        console.log('Created new session:', session.session_id);
+    } catch (error) {
+        console.error('Failed to create new session:', error);
+        showError('Failed to create new chat');
+    }
+}
+
+// Delete session and update UI
+async function deleteSessionAndUpdate(sessionId) {
+    try {
+        await sessionManager.deleteSession(sessionId);
+
+        // If deleted session was active, create new one
+        if (sessionManager.getCurrentSessionId() === sessionId) {
+            await createNewChat();
+        } else {
+            await loadSessions();
+        }
+    } catch (error) {
+        console.error('Failed to delete session:', error);
+        showError('Failed to delete chat');
+    }
+}
+
+// Toggle sidebar (mobile)
+function toggleSidebar() {
+    if (sidebar) {
+        sidebar.classList.toggle('open');
+    }
+}
+
+// Close sidebar on mobile
+function closeSidebarOnMobile() {
+    if (window.innerWidth <= 768 && sidebar) {
+        sidebar.classList.remove('open');
     }
 }
 
@@ -236,12 +388,42 @@ async function sendMessage() {
         return;
     }
 
+    // Ensure we have a session
+    if (!sessionManager || !sessionManager.getCurrentSessionId()) {
+        console.error('No active session');
+        showError('No active session. Creating new session...');
+        try {
+            await createNewChat();
+        } catch (error) {
+            console.error('Failed to create session:', error);
+            showError('Failed to create session. Please refresh the page.');
+            return;
+        }
+    }
+
     requestInProgress = true;
 
     // Add user message to chat
     addMessage(message, 'user');
     conversationHistory.push({ role: 'user', content: message });
-    saveConversationHistory();
+
+    // Save message to database
+    try {
+        await sessionManager.saveMessage('user', message);
+
+        // Update session title if this is the first message
+        if (conversationHistory.length === 1) {
+            const title = sessionManager.generateSessionTitle(message);
+            await fetch(`${API_BASE_URL}/api/sessions/${sessionManager.getCurrentSessionId()}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            await loadSessions(); // Refresh sidebar
+        }
+    } catch (error) {
+        console.error('Failed to save user message:', error);
+    }
 
     // Clear input
     messageInput.value = '';
@@ -346,7 +528,7 @@ async function sendMessage() {
 }
 
 // Handle SSE stream events
-function handleStreamEvent(eventType, eventData, statusId) {
+async function handleStreamEvent(eventType, eventData, statusId) {
     try {
         const data = JSON.parse(eventData);
 
@@ -378,7 +560,13 @@ function handleStreamEvent(eventType, eventData, statusId) {
                 if (data.response) {
                     addMessage(data.response, 'bot');
                     conversationHistory.push({ role: 'assistant', content: data.response });
-                    saveConversationHistory();
+
+                    // Save assistant response to database
+                    try {
+                        await sessionManager.saveMessage('assistant', data.response);
+                    } catch (error) {
+                        console.error('Failed to save assistant message:', error);
+                    }
                 }
                 break;
 
@@ -469,7 +657,25 @@ async function performWebSearch() {
 
         conversationHistory.push({ role: 'user', content: query });
         conversationHistory.push({ role: 'assistant', content: resultsText });
-        saveConversationHistory();
+
+        // Save to database
+        try {
+            await sessionManager.saveMessage('user', query);
+            await sessionManager.saveMessage('assistant', resultsText);
+
+            // Update session title if this is the first message
+            if (conversationHistory.length === 2) {
+                const title = sessionManager.generateSessionTitle(query);
+                await fetch(`${API_BASE_URL}/api/sessions/${sessionManager.getCurrentSessionId()}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                await loadSessions();
+            }
+        } catch (error) {
+            console.error('Failed to save search messages:', error);
+        }
 
         messageInput.value = '';
         autoResizeTextarea();
@@ -771,20 +977,7 @@ function showError(message, type = 'error') {
     }, 5000);
 }
 
-// Clear chat
-function clearChat() {
-    if (confirm('Are you sure you want to clear the chat?')) {
-        try {
-            chatMessages.innerHTML = '';
-            conversationHistory = [];
-            messageCount = 0;
-            saveConversationHistory();
-        } catch (error) {
-            console.error('Failed to clear chat:', error);
-            showError('Failed to clear chat. Please refresh the page.');
-        }
-    }
-}
+// Clear chat is now handled by createNewChat function
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
