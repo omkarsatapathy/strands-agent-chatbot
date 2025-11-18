@@ -15,6 +15,7 @@ from ..config import Config
 from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
+from ..tools.document_rag import query_documents
 from .callback_handler import ToolLimitHook
 
 logger = get_logger("chatbot.streaming")
@@ -22,7 +23,8 @@ logger = get_logger("chatbot.streaming")
 
 async def create_streaming_response(
     message: str,
-    conversation_history: List[Dict[str, str]]
+    conversation_history: List[Dict[str, str]],
+    session_id: str = None
 ) -> AsyncGenerator[str, None]:
     """
     Create async generator for streaming agent responses with tool execution updates.
@@ -68,10 +70,34 @@ async def create_streaming_response(
         # Create hook for tool limit enforcement
         tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
 
+        # Build tools list
+        tools = [calculator, google_search_with_context, get_current_datetime_ist]
+
+        # Add document query tool with session_id context if session provided
+        if session_id:
+            # Create a wrapper function that binds session_id
+            def query_documents_wrapper(query: str) -> dict:
+                """Query uploaded documents for information using RAG.
+
+                Use this tool when the user asks questions about their uploaded documents.
+
+                Args:
+                    query: The question about the documents
+
+                Returns:
+                    Dictionary with answer from documents
+                """
+                return query_documents(query=query, session_id=session_id)
+
+            # Register as a tool
+            from strands import tool
+            query_docs_tool = tool(query_documents_wrapper)
+            tools.append(query_docs_tool)
+
         # Initialize agent WITHOUT callback handler (best practice for async iterators)
         agent = Agent(
             model=model,
-            tools=[calculator, google_search_with_context, get_current_datetime_ist],
+            tools=tools,
             system_prompt=Config.get_system_prompt(),
             messages=history_messages,
             hooks=[tool_limit_hook],
@@ -89,7 +115,9 @@ async def create_streaming_response(
         tool_display_names = {
             'calculator': '🧮 Calculating',
             'google_search_with_context': '🌐 Searching the web',
-            'get_current_datetime_ist': '🕐 Getting current time'
+            'get_current_datetime_ist': '🕐 Getting current time',
+            'query_documents': '📄 Analyzing documents',
+            'query_documents_wrapper': '📄 Analyzing documents'
         }
 
         # Track state

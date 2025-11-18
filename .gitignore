@@ -49,3 +49,10 @@ Thumbs.db
 frontend/database/
 *.db
 *.db-journal
+
+# Vector Database Storage
+vector_db/
+storage/
+
+# Uploaded Documents
+uploads/

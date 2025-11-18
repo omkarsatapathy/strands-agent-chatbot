@@ -4,3 +4,12 @@ strands-agents==0.1.0
 requests==2.31.0
 pydantic==2.5.0
 python-dotenv==1.0.0
+beautifulsoup4==4.12.2
+
+# LlamaIndex and dependencies for RAG
+llama-index==0.11.23
+llama-index-embeddings-openai==0.3.1
+llama-index-llms-openai==0.3.3
+openai==1.58.1
+pypdf==5.1.0
+python-multipart==0.0.20

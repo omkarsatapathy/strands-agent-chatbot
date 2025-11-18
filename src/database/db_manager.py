@@ -20,12 +20,31 @@ class DatabaseManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
 
+            # Check if sessions table exists and migrate if needed
+            cursor.execute("PRAGMA table_info(sessions)")
+            columns = [col[1] for col in cursor.fetchall()]
+
+            # Migration: Add new columns if they don't exist
+            if 'has_documents' not in columns:
+                try:
+                    cursor.execute("ALTER TABLE sessions ADD COLUMN has_documents BOOLEAN DEFAULT 0")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
+            if 'vector_db_path' not in columns:
+                try:
+                    cursor.execute("ALTER TABLE sessions ADD COLUMN vector_db_path TEXT")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
             # Create sessions table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT UNIQUE NOT NULL,
                     title TEXT NOT NULL,
+                    has_documents BOOLEAN DEFAULT 0,
+                    vector_db_path TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -43,6 +62,19 @@ class DatabaseManager:
                 )
             """)
 
+            # Create documents table for tracking uploaded files
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_size INTEGER,
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (session_id) REFERENCES sessions (session_id)
+                )
+            """)
+
             # Create index for faster queries
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_session_id
@@ -52,6 +84,11 @@ class DatabaseManager:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_session_updated
                 ON sessions(updated_at DESC)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_documents_session
+                ON documents(session_id)
             """)
 
             conn.commit()
@@ -183,6 +220,69 @@ class DatabaseManager:
         """Clear all sessions and messages (for testing/reset)."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM documents")
             cursor.execute("DELETE FROM messages")
             cursor.execute("DELETE FROM sessions")
             conn.commit()
+
+    # ============= Document Management Methods =============
+
+    def add_document(self, session_id: str, filename: str, file_path: str, file_size: int) -> Dict:
+        """Add a document record to a session."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO documents (session_id, filename, file_path, file_size) VALUES (?, ?, ?, ?)",
+                (session_id, filename, file_path, file_size)
+            )
+            document_id = cursor.lastrowid
+            conn.commit()
+
+            # Update session timestamp
+            self.update_session_timestamp(session_id)
+
+            return {
+                "id": document_id,
+                "session_id": session_id,
+                "filename": filename,
+                "file_path": file_path,
+                "file_size": file_size,
+                "uploaded_at": datetime.now().isoformat()
+            }
+
+    def get_documents(self, session_id: str) -> List[Dict]:
+        """Get all documents for a session."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM documents WHERE session_id = ? ORDER BY uploaded_at ASC",
+                (session_id,)
+            )
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def update_session_vector_db(self, session_id: str, vector_db_path: str) -> bool:
+        """Update session with vector DB path."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE sessions SET has_documents = 1, vector_db_path = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                (vector_db_path, session_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_session_vector_db_path(self, session_id: str) -> Optional[str]:
+        """Get vector DB path for a session."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT vector_db_path FROM sessions WHERE session_id = ?",
+                (session_id,)
+            )
+            row = cursor.fetchone()
+            if row and row['vector_db_path']:
+                return row['vector_db_path']
+            return None

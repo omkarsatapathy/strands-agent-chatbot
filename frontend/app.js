@@ -14,6 +14,7 @@ const CONFIG = {
 // DOM Elements
 let chatMessages, messageInput, sendButton, clearButton, searchButton, statusText, statusDot, mouseIcon;
 let sidebar, sessionList, sidebarToggle, newChatButton;
+let uploadButton, fileInput, documentArea, documentList;
 
 // Conversation history
 let conversationHistory = [];
@@ -62,6 +63,10 @@ function initializeDOMElements() {
     sessionList = document.getElementById('sessionList');
     sidebarToggle = document.getElementById('sidebarToggle');
     newChatButton = document.getElementById('newChatButton');
+    uploadButton = document.getElementById('uploadButton');
+    fileInput = document.getElementById('fileInput');
+    documentArea = document.getElementById('documentArea');
+    documentList = document.getElementById('documentList');
 
     if (!chatMessages || !messageInput || !sendButton || !statusText || !statusDot || !mouseIcon) {
         throw new Error('Required DOM elements not found');
@@ -106,6 +111,8 @@ function setupEventListeners() {
     if (searchButton) searchButton.addEventListener('click', performWebSearch);
     if (newChatButton) newChatButton.addEventListener('click', createNewChat);
     if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+    if (uploadButton) uploadButton.addEventListener('click', () => fileInput.click());
+    if (fileInput) fileInput.addEventListener('change', handleFileUpload);
     messageInput.addEventListener('input', autoResizeTextarea);
 
     // Prevent zoom on double-tap for iOS
@@ -221,6 +228,9 @@ async function loadSession(sessionId) {
                 conversationHistory.push({ role: msg.role, content: msg.content });
             });
         }
+
+        // Load documents for this session
+        await loadSessionDocuments(sessionId);
 
         // Update UI
         await loadSessions(); // Refresh sidebar to show active session
@@ -449,7 +459,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 message: message,
-                conversation_history: recentHistory
+                conversation_history: recentHistory,
+                session_id: sessionManager.getCurrentSessionId()
             })
         });
 
@@ -1012,6 +1023,134 @@ function showError(message, type = 'error') {
 }
 
 // Clear chat is now handled by createNewChat function
+
+// ============= Document Upload Functions =============
+
+// Handle file upload
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showError('File too large. Maximum size is 10MB.');
+        fileInput.value = '';
+        return;
+    }
+
+    // Ensure we have a session
+    const currentSessionId = sessionManager.getCurrentSessionId();
+    if (!currentSessionId) {
+        showError('No active session. Creating new session...');
+        await createNewChat();
+        // Retry upload after session creation
+        setTimeout(() => handleFileUpload(event), 500);
+        return;
+    }
+
+    try {
+        updateStatus('Uploading document...', true);
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('session_id', currentSessionId);
+
+        // Show upload progress
+        const statusId = showStatusIndicator(`📤 Uploading ${file.name}...`);
+
+        // Upload file
+        const response = await fetch(`${API_BASE_URL}/api/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Upload failed');
+        }
+
+        const result = await response.json();
+
+        removeStatusIndicator(statusId);
+
+        // Show success message
+        showError(`✅ ${result.message}`, 'success');
+
+        // Reload documents for this session
+        await loadSessionDocuments(currentSessionId);
+
+        // Add a system message
+        addMessage(`Document uploaded: ${file.name} (${formatFileSize(file.size)})`, 'bot');
+
+        updateStatus('Ready', true);
+
+        // Clear file input
+        fileInput.value = '';
+
+    } catch (error) {
+        console.error('File upload error:', error);
+        showError(`Failed to upload document: ${error.message}`);
+        updateStatus('Ready', true);
+        fileInput.value = '';
+    }
+}
+
+// Load documents for a session
+async function loadSessionDocuments(sessionId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/documents/${sessionId}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch documents');
+        }
+
+        const data = await response.json();
+        const documents = data.documents || [];
+
+        // Display documents
+        displayDocuments(documents);
+
+    } catch (error) {
+        console.error('Error loading documents:', error);
+    }
+}
+
+// Display documents in the UI
+function displayDocuments(documents) {
+    if (!documentList || !documentArea) return;
+
+    if (documents.length === 0) {
+        documentArea.style.display = 'none';
+        return;
+    }
+
+    documentArea.style.display = 'block';
+    documentList.innerHTML = '';
+
+    documents.forEach(doc => {
+        const docItem = document.createElement('div');
+        docItem.className = 'document-item';
+        docItem.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span class="document-name" title="${doc.filename}">${doc.filename}</span>
+            <span class="document-size">${formatFileSize(doc.file_size)}</span>
+        `;
+        documentList.appendChild(docItem);
+    });
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {

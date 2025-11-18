@@ -19,6 +19,10 @@ class Config:
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     GOOGLE_SEARCH_ENGINE_ID: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
 
+    # OpenAI API Configuration
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
     FASTAPI_PORT: int = int(os.getenv("FASTAPI_PORT", "8000"))
@@ -42,6 +46,7 @@ Your capabilities include:
 - Performing mathematical calculations using your calculator tool
 - Searching the web for latest news, information, and updates using your Google search tool
 - Providing current date and time in Indian Standard Time (IST) using your datetime tool
+- Analyzing uploaded documents (PDFs, DOCX, TXT) and answering questions about their content using your query_documents tool
 
 Guidelines for your responses:
 1. Be conversational and friendly while maintaining professionalism, Dont forget to use emojis. :)
@@ -50,9 +55,10 @@ Guidelines for your responses:
 4. When users ask about current events, news, or real-time information, use the Google search tool to provide accurate and up-to-date answers
 5. For date and time related queries, use the IST datetime tool to fetch the current time accurately
 6. For mathematical problems or calculations, use the calculator tool
-7. If you're unsure about something, be honest and try to find the answer using your available tools
-8. Focus on being helpful and solving the user's actual need rather than providing generic responses
-9. When using tools, explain what information you're fetching in a natural way
+7. When users ask questions about documents they've uploaded, use the query_documents tool to search through the documents and provide accurate answers based on the document content
+8. If you're unsure about something, be honest and try to find the answer using your available tools
+9. Focus on being helpful and solving the user's actual need rather than providing generic responses
+10. When using tools, explain what information you're fetching in a natural way
 
 Remember: You are here to assist, inform, and make the user's experience as smooth and helpful as possible!"""
 
@@ -86,6 +92,11 @@ Remember: You are here to assist, inform, and make the user's experience as smoo
     def get_system_prompt(cls) -> str:
         """Get agent system prompt."""
         return cls.AGENT_SYSTEM_PROMPT
+
+    @classmethod
+    def get_openai_credentials(cls) -> tuple[str, str]:
+        """Get OpenAI API credentials."""
+        return cls.OPENAI_API_KEY, cls.OPENAI_EMBEDDING_MODEL
 
 
 # Initialize and validate config on import
