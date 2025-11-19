@@ -19,6 +19,7 @@ from ..tools.datetime_ist import get_current_datetime_ist
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
 from .gmail_tool_wrappers import get_session_tools, get_gmail_tools
+from ..utils.token_tracker import get_request_tracker, reset_request_tracker
 
 logger = get_logger("chatbot.streaming")
 
@@ -47,6 +48,10 @@ async def create_streaming_response(
         SSE-formatted strings with event updates
     """
     try:
+        # Reset token tracker for this request
+        reset_request_tracker()
+        tracker = get_request_tracker()
+
         # Initialize model using factory
         if model_provider:
             logger.info(f"Using model provider: {model_provider}")
@@ -67,6 +72,9 @@ async def create_streaming_response(
             logger.info(f"Using default model provider: {default_provider_name}")
             provider = ModelProviderFactory.create_provider(default_provider_name)
             model = provider.get_model()
+
+        # Get model ID for cost calculation
+        model_id = getattr(provider, 'model_id', 'gpt-4o-mini')
 
         # Convert conversation history to Strands format
         history_messages = []
@@ -209,23 +217,47 @@ async def create_streaming_response(
                 logger.info(f"🔀 Handoff: {from_agents} → {to_agents}")
                 yield f"event: thinking\ndata: {json.dumps({'status': f'Handing off to {to_agents}'})}\n\n"
 
-            # Get final result
+            # Get final result and track token usage
             elif event_type == "multiagent_result":
                 result = event.get("result")
                 if result:
                     status = getattr(result, 'status', 'completed')
                     logger.info(f"✅ Swarm completed: {status}")
 
+                    # Try to extract token usage from result
+                    # Strands may provide usage in result metadata
+                    if hasattr(result, 'usage') and result.usage:
+                        tracker.add_completion_usage(result.usage, model_id)
+                        logger.info(f"📊 Tokens tracked: {result.usage}")
+
             # Send periodic heartbeat to keep connection alive
             if time.time() - last_heartbeat > 15:
                 yield ": heartbeat\n\n"
                 last_heartbeat = time.time()
 
-        # Send completion event with full response
+        # Calculate cost for this request
+        cost_data = tracker.calculate_cost(model_id=model_id)
+        logger.info("=" * 80)
+        logger.info(f"📊 TOKEN USAGE SUMMARY")
+        logger.info(f"Model: {model_id}")
+        logger.info(f"Input Tokens:  {cost_data['input_tokens']:,}")
+        logger.info(f"Output Tokens: {cost_data['output_tokens']:,}")
+        logger.info(f"Total Tokens:  {cost_data['total_tokens']:,}")
+        logger.info(f"💰 Cost: ₹{cost_data['total_cost_inr']:.4f} (${cost_data['total_cost_usd']:.6f})")
+        logger.info("=" * 80)
+
+        # Send completion event with full response and cost
         completion_data = {
             'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
             'response': complete_response,
-            'tool_count': tool_count
+            'tool_count': tool_count,
+            'cost_inr': cost_data['total_cost_inr'],
+            'cost_usd': cost_data['total_cost_usd'],
+            'tokens': {
+                'input': cost_data['input_tokens'],
+                'output': cost_data['output_tokens'],
+                'total': cost_data['total_tokens']
+            }
         }
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
         logger.info(f"✅ Streaming completed. Tools used: {tool_count}")

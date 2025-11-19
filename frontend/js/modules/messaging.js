@@ -132,7 +132,7 @@ function convertTableToHTML(rows) {
 }
 
 // Add message to chat
-export function addMessage(text, sender) {
+export function addMessage(text, sender, costData = null) {
     console.log('addMessage called with:', text.substring(0, 100));
 
     if (!chatMessages) return;
@@ -174,7 +174,7 @@ export function addMessage(text, sender) {
     console.log('[addMessage] Checking sender type:', sender);
     if (sender === 'assistant' || sender === 'bot') {
         console.log('[addMessage] Creating audio player for bot/assistant message');
-        const audioContainer = createAudioPlayer(text);
+        const audioContainer = createAudioPlayer(text, costData);
         console.log('[addMessage] Audio container created:', audioContainer);
         contentDiv.appendChild(audioContainer);
         console.log('[addMessage] Audio container appended to contentDiv');
@@ -190,7 +190,7 @@ export function addMessage(text, sender) {
 }
 
 // Create audio player for text-to-speech (on-demand generation)
-function createAudioPlayer(text) {
+function createAudioPlayer(text, costData = null) {
     console.log('[AudioPlayer] Creating audio player for text:', text.substring(0, 50));
 
     const audioContainer = document.createElement('div');
@@ -237,6 +237,20 @@ function createAudioPlayer(text) {
 
     audioContainer.appendChild(statusText);
     audioContainer.appendChild(controlsContainer);
+
+    // Add cost display below audio controls if cost data is available
+    // Store initial chat cost for this specific message
+    const chatCostInr = (costData && costData.cost_inr !== undefined) ? costData.cost_inr : 0;
+
+    if (chatCostInr > 0) {
+        const costDisplay = document.createElement('div');
+        costDisplay.className = 'cost-display';
+        costDisplay.style.fontSize = '11px';
+        costDisplay.style.color = '#888';
+        costDisplay.style.marginTop = '4px';
+        costDisplay.innerHTML = `Chat cost: ₹${chatCostInr.toFixed(4)}`;
+        audioContainer.appendChild(costDisplay);
+    }
 
     let audioElement = null;
     let isPlaying = false;
@@ -292,6 +306,28 @@ function createAudioPlayer(text) {
 
             audioElement = new Audio(audioUrl);
             audioGenerated = true;
+
+            // Calculate TTS cost separately (characters * TTS pricing)
+            // TTS pricing: $15/1M chars for tts-1, USD to INR = 85
+            const ttsChars = text.length;
+            const ttsCostUsd = (ttsChars / 1_000_000) * 15.0;
+            const ttsCostInr = ttsCostUsd * 85;
+
+            // Update cost display to show chat + TTS breakdown
+            let costDisplay = audioContainer.querySelector('.cost-display');
+            if (!costDisplay) {
+                costDisplay = document.createElement('div');
+                costDisplay.className = 'cost-display';
+                costDisplay.style.fontSize = '11px';
+                costDisplay.style.color = '#888';
+                costDisplay.style.marginTop = '4px';
+                audioContainer.appendChild(costDisplay);
+            }
+
+            const totalCost = chatCostInr + ttsCostInr;
+            costDisplay.innerHTML = `Chat: ₹${chatCostInr.toFixed(4)} | TTS: ₹${ttsCostInr.toFixed(4)} | Total: ₹${totalCost.toFixed(4)}`;
+
+            console.log(`[AudioPlayer] Cost breakdown - Chat: ₹${chatCostInr.toFixed(4)}, TTS: ₹${ttsCostInr.toFixed(4)}, Total: ₹${totalCost.toFixed(4)}`);
 
             // Wait for metadata to load
             audioElement.addEventListener('loadedmetadata', () => {
@@ -463,9 +499,14 @@ async function handleStreamEvent(eventType, eventData, statusId) {
                 removeStatusIndicator(statusId);
                 updateStatus(data.status, true);
 
-                // Add response to chat
+                // Add response to chat with cost data
                 if (data.response) {
-                    addMessage(data.response, 'bot');
+                    const costData = {
+                        cost_inr: data.cost_inr || 0,
+                        cost_usd: data.cost_usd || 0,
+                        tokens: data.tokens || {}
+                    };
+                    addMessage(data.response, 'bot', costData);
                     conversationHistory.push({ role: 'assistant', content: data.response });
 
                     // Save assistant response to database

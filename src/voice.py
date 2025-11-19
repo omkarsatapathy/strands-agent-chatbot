@@ -5,6 +5,7 @@ from typing import Optional
 from openai import OpenAI
 from src.logging_config import get_logger
 from src.config import Config
+from src.utils.token_tracker import get_request_tracker
 
 logger = get_logger("chatbot.voice")
 
@@ -69,6 +70,15 @@ class VoiceGenerator:
 
             audio_bytes = audio_data.getvalue()
             logger.info(f"[VOICE] Successfully generated {len(audio_bytes)} bytes of audio data")
+
+            # Track TTS usage for cost calculation
+            tracker = get_request_tracker()
+            tracker.add_tts_usage(text, self.model)
+            logger.info("=" * 60)
+            logger.info(f"🎵 TTS USAGE")
+            logger.info(f"Model: {self.model}")
+            logger.info(f"Characters: {len(text):,}")
+            logger.info("=" * 60)
 
             return audio_bytes
 

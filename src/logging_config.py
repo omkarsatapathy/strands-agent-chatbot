@@ -116,6 +116,11 @@ def setup_logging(
         logger.addHandler(console_handler)
         strands_logger.addHandler(console_handler)
 
+        # Also add debug logging for OpenAI provider
+        openai_logger = logging.getLogger("chatbot.openai_provider")
+        openai_logger.setLevel(logging.DEBUG)
+        openai_logger.addHandler(console_handler)
+
     # File handler with JSON structured logging
     if log_to_file:
         # Create log file with timestamp

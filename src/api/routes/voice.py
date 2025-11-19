@@ -3,10 +3,11 @@ import hashlib
 import os
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import Response, FileResponse, JSONResponse
 from pydantic import BaseModel
 from src.voice import get_voice_generator
 from src.logging_config import get_logger
+from src.utils.token_tracker import get_request_tracker
 
 logger = get_logger("chatbot.routes.voice")
 
@@ -117,3 +118,27 @@ async def generate_voice(request: VoiceRequest):
         logger.error(f"[VOICE] Exception occurred: {type(e).__name__}: {str(e)}")
         logger.exception("[VOICE] Full traceback:")
         raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}")
+
+
+@router.get("/voice/cost")
+async def get_voice_cost():
+    """
+    Get the current TTS cost for this request/session.
+
+    Returns:
+        Cost information in INR and USD
+    """
+    try:
+        tracker = get_request_tracker()
+        cost_data = tracker.calculate_cost(model_id="gpt-4o-mini", tts_model_id="tts-1")
+
+        return JSONResponse(content={
+            "cost_inr": cost_data["total_cost_inr"],
+            "cost_usd": cost_data["total_cost_usd"],
+            "tts_cost_inr": cost_data["tts_cost_usd"] * tracker.USD_TO_INR,
+            "tts_characters": cost_data["tts_characters"]
+        })
+
+    except Exception as e:
+        logger.error(f"[VOICE COST] Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating cost: {str(e)}")
