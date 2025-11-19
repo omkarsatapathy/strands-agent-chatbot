@@ -37,6 +37,16 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
+            # Migration: Add audio_file_path column to messages table
+            cursor.execute("PRAGMA table_info(messages)")
+            message_columns = [col[1] for col in cursor.fetchall()]
+
+            if 'audio_file_path' not in message_columns:
+                try:
+                    cursor.execute("ALTER TABLE messages ADD COLUMN audio_file_path TEXT")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
             # Create sessions table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
@@ -57,6 +67,7 @@ class DatabaseManager:
                     session_id TEXT NOT NULL,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
+                    audio_file_path TEXT,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (session_id) REFERENCES sessions (session_id)
                 )
@@ -215,6 +226,33 @@ class DatabaseManager:
         messages = self.get_messages(session_id)
         session['messages'] = messages
         return session
+
+    def update_message_audio_path(self, message_id: int, audio_file_path: str) -> bool:
+        """Update message with audio file path."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE messages SET audio_file_path = ? WHERE id = ?",
+                (audio_file_path, message_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_message_by_content_hash(self, session_id: str, role: str, content: str) -> Optional[Dict]:
+        """Get most recent message matching session, role and content."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT * FROM messages
+                   WHERE session_id = ? AND role = ? AND content = ?
+                   ORDER BY timestamp DESC LIMIT 1""",
+                (session_id, role, content)
+            )
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
 
     def clear_all_data(self):
         """Clear all sessions and messages (for testing/reset)."""

@@ -30,7 +30,7 @@
 }
 
 .new-chat-button {
-    background: #00a884;
+    background: #3b82f6;
     border: none;
     color: white;
     cursor: pointer;
@@ -45,7 +45,7 @@
 }
 
 .new-chat-button:hover {
-    background: #06cf9c;
+    background: #60a5fa;
     transform: scale(1.05);
 }
 
@@ -76,12 +76,12 @@
 
 .session-item:hover {
     background: rgba(42, 57, 66, 0.7);
-    border-left-color: #00a884;
+    border-left-color: #3b82f6;
 }
 
 .session-item.active {
-    background: rgba(0, 168, 132, 0.2);
-    border-left-color: #00a884;
+    background: rgba(59, 130, 246, 0.2);
+    border-left-color: #3b82f6;
 }
 
 .session-title {

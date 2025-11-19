@@ -7,15 +7,15 @@ from ...config import Config
 class OpenAIProvider(BaseModelProvider):
     """Provider for OpenAI models."""
 
-    def __init__(self, model_id: str = "gpt-4o"):
+    def __init__(self, model_id: str = "gpt-5-mini"):
         """
         Initialize OpenAI provider.
 
         Args:
-            model_id: OpenAI model ID to use (default: gpt-4o)
+            model_id: OpenAI model ID to use (default: gpt-5-mini)
         """
         self.api_key = Config.OPENAI_API_KEY
-        self.model_id = model_id
+        self.model_id = Config.OPENAI_MODEL_ID
         self.max_tokens = Config.LLM_MAX_TOKENS
         self.temperature = Config.LLM_TEMPERATURE
 

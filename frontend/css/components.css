@@ -22,7 +22,7 @@
 }
 
 .send-button {
-    background: #00a884;
+    background: #3b82f6;
     color: white;
     border: none;
     border-radius: 50%;
@@ -42,7 +42,7 @@
 }
 
 .send-button:hover {
-    background: #06cf9c;
+    background: #60a5fa;
     transform: scale(1.05);
 }
 
@@ -111,14 +111,14 @@
 }
 
 .success-message {
-    background: rgba(37, 211, 102, 0.15);
-    color: #25d366;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
     padding: 10px 14px;
     border-radius: 8px;
     margin: 8px 0;
     font-size: 13px;
     animation: messageSlideIn 0.3s ease-out;
-    border-left: 3px solid #25d366;
+    border-left: 3px solid #3b82f6;
 }
 
 /* Loading spinner */
@@ -291,7 +291,7 @@
 }
 
 .model-provider-select:focus {
-    border-color: #00a884;
+    border-color: #3b82f6;
     background: rgba(255, 255, 255, 0.1);
 }
 

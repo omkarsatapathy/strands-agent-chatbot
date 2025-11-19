@@ -24,7 +24,14 @@ class Config:
 
     # OpenAI API Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL_ID: str = os.getenv("OPENAI_MODEL_ID", "gpt-5-mini")
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+
+    # OpenAI TTS Configuration
+    OPENAI_TTS_MODEL: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+    OPENAI_TTS_VOICE: str = os.getenv("OPENAI_TTS_VOICE", "marin")
+    OPENAI_TTS_SPEED: float = float(os.getenv("OPENAI_TTS_SPEED", "1.0"))
+
 
     # Gmail Configuration
     GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "default")
@@ -216,6 +223,11 @@ Remember: Your goal is to provide accurate, well-researched information that ful
     def get_openai_credentials(cls) -> tuple[str, str]:
         """Get OpenAI API credentials."""
         return cls.OPENAI_API_KEY, cls.OPENAI_EMBEDDING_MODEL
+
+    @classmethod
+    def get_tts_config(cls) -> tuple[str, str, float]:
+        """Get OpenAI TTS configuration."""
+        return cls.OPENAI_TTS_MODEL, cls.OPENAI_TTS_VOICE, cls.OPENAI_TTS_SPEED
 
 
 # Initialize and validate config on import

@@ -4,6 +4,7 @@ import os
 from typing import Optional
 from openai import OpenAI
 from src.logging_config import get_logger
+from src.config import Config
 
 logger = get_logger("chatbot.voice")
 
@@ -17,9 +18,9 @@ class VoiceGenerator:
         logger.info(f"[VOICE] Initializing with API key: {'SET' if api_key else 'NOT SET'}")
 
         self.client = OpenAI(api_key=api_key)
-        self.model = "tts-1"  # or "tts-1-hd" for higher quality
-        self.voice = "nova"  # Available: alloy, echo, fable, onyx, nova, shimmer
-        self.speed = 1.0
+
+        # Fetch TTS configuration from config
+        self.model, self.voice, self.speed = Config.get_tts_config()
 
         logger.info(f"[VOICE] Initialized: model={self.model}, voice={self.voice}, speed={self.speed}")
 
