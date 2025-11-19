@@ -27,9 +27,11 @@ class Config:
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
     # Gmail Configuration
-    GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "omkarsatapathy001@gmail.com")
-    GMAIL_DEFAULT_MAX_RESULTS: int = int(os.getenv("GMAIL_DEFAULT_MAX_RESULTS", "25"))
-    GMAIL_FETCH_FULL_BODY: bool = os.getenv("GMAIL_FETCH_FULL_BODY", "True").lower() in ("true", "1", "yes")
+    GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "default")
+    GMAIL_DEFAULT_MAX_RESULTS: int = int(os.getenv("GMAIL_DEFAULT_MAX_RESULTS", "15"))
+    GMAIL_MAX_RESULTS_LIMIT: int = int(os.getenv("GMAIL_MAX_RESULTS_LIMIT", "50"))
+    GMAIL_BODY_MAX_LENGTH: int = int(os.getenv("GMAIL_BODY_MAX_LENGTH", "5000"))
+    GMAIL_CREDENTIALS_DIR: str = os.getenv("GMAIL_CREDENTIALS_DIR", "frontend/database/gmail_credentials")
 
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
@@ -55,7 +57,7 @@ Your capabilities include:
 - Searching the web for latest news, information, and updates using your Google search tool
 - Providing current date and time in Indian Standard Time (IST) using your datetime tool
 - Analyzing uploaded documents (PDFs, DOCX, TXT) and answering questions about their content using your query_documents tool
-- Fetching Gmail messages and checking Gmail authentication status using your Gmail tools
+- Fetching Gmail messages.
 
 Guidelines for your responses:
 1. Be conversational and friendly while maintaining professionalism, Dont forget to use emojis. :)
@@ -65,12 +67,24 @@ Guidelines for your responses:
 5. For date and time related queries, use the IST datetime tool to fetch the current time accurately
 6. For mathematical problems or calculations, use the calculator tool
 7. When users ask questions about documents they've uploaded, use the query_documents tool to search through the documents and provide accurate answers based on the document content
-8. For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account. When showing emails, provide a concise summary/brief of ALL fetched emails rather than listing them one by one, unless the user specifically asks for a detailed list.
+8. Whn you call gmail too, Mike will take care all for you, just pass his message to user, no need to create your own response.
 9. If you're unsure about something, be honest and try to find the answer using your available tools
 10. Focus on being helpful and solving the user's actual need rather than providing generic responses
 11. When using tools, explain what information you're fetching in a natural way
 
 Remember: You are here to assist, inform, and make the user's experience as smooth and helpful as possible!"""
+
+    EMAIL_AGENT_SYSTEM_PROMPT: str = """You are Mike, Always do ideantify yourself first, you are a highly intelligent and helpful AI assistant designed to assist users with their email-related queries and tasks.
+    Your capabilities include:
+    - Fetching Gmail messages using your fetch_gmail_messages tool
+    - Checking Gmail authentication status using your gmail_auth_status tool
+    - For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account. When showing emails, provide a concise summary/brief of ALL fetched emails rather than listing them one by one, unless the user specifically asks for a detailed list.
+
+    You should always prepaire a Morning brienf of the email lists shown to you in an elaborate manner with proper greetings and closing statements. 
+    Do highlight important emails and summarize the content effectively. Use a friendly and professional tone throughout your responses.'
+    If you think email is kind of a spam or not important, do not include it in the brief.
+    you should make it a story type brief to make it more interesting for the user to read.
+    """
 
     @classmethod
     def validate(cls) -> bool:
@@ -102,6 +116,11 @@ Remember: You are here to assist, inform, and make the user's experience as smoo
     def get_system_prompt(cls) -> str:
         """Get agent system prompt."""
         return cls.AGENT_SYSTEM_PROMPT
+    
+    @classmethod
+    def get_email_agent_system_prompt(cls) -> str:
+        """Get agent system prompt."""
+        return cls.EMAIL_AGENT_SYSTEM_PROMPT
 
     @classmethod
     def get_openai_credentials(cls) -> tuple[str, str]:

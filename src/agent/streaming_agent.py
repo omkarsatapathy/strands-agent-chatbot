@@ -14,10 +14,10 @@ from ..config import Config
 from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
-from ..tools.document_rag import query_documents
-from ..tools.gmail import fetch_gmail_messages, gmail_auth_status
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
+from .gmail_tool_wrappers import get_session_tools, get_gmail_tools
+from strands import tool
 
 logger = get_logger("chatbot.streaming")
 
@@ -87,68 +87,24 @@ async def create_streaming_response(
         # Build tools list
         tools = [calculator, google_search_with_context, get_current_datetime_ist]
 
-        # Add session-specific tools with session_id context
-        if session_id:
-            from strands import tool
+        # Capture session_id and model in closure
+        _session_id = session_id
+        _model = model
 
-            # Gmail tools with configured user email as user_id
-            def fetch_gmail_wrapper(query: str = "") -> dict:
-                """Fetch Gmail messages for the authenticated user.
+        @tool
+        def email_agent(prompt: str):
+            """Specialized agent for handling email-related tasks."""
+            sub_tools = get_session_tools(_session_id) if _session_id else get_gmail_tools()
+            email_sub_agent = Agent(
+                model=_model,
+                tools=sub_tools,
+                system_prompt=Config.get_email_agent_system_prompt()
+            )
+            response = email_sub_agent(prompt)
+            return response
 
-                This tool fetches the 15 most recent Gmail messages. Use query parameter
-                for filtering (e.g., "is:unread", "from:example@gmail.com", "subject:important").
-
-                Args:
-                    query: Gmail search query for filtering messages (default: "" for all messages)
-
-                Returns:
-                    Dictionary containing list of messages with full body content
-                """
-                return fetch_gmail_messages(max_results=Config.GMAIL_DEFAULT_MAX_RESULTS, query=query, user_id=Config.GMAIL_USER_ID)
-
-            def gmail_auth_wrapper() -> dict:
-                """Check Gmail authentication status.
-
-                Returns:
-                    Dictionary with authentication status
-                """
-                return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
-
-            # Document query tool
-            def query_documents_wrapper(query: str) -> dict:
-                """Query uploaded documents for information using RAG.
-
-                Use this tool when the user asks questions about their uploaded documents.
-
-                Args:
-                    query: The question about the documents
-
-                Returns:
-                    Dictionary with answer from documents
-                """
-                return query_documents(query=query, session_id=session_id)
-
-            # Register session-specific tools
-            gmail_fetch_tool = tool(fetch_gmail_wrapper)
-            gmail_auth_tool = tool(gmail_auth_wrapper)
-            query_docs_tool = tool(query_documents_wrapper)
-
-            tools.extend([gmail_fetch_tool, gmail_auth_tool, query_docs_tool])
-        else:
-            # If no session_id, create Gmail wrappers with configured user email
-            from strands import tool
-
-            def fetch_gmail_wrapper(query: str = "") -> dict:
-                """Fetch Gmail messages for the authenticated user."""
-                return fetch_gmail_messages(max_results=Config.GMAIL_DEFAULT_MAX_RESULTS, query=query, user_id=Config.GMAIL_USER_ID)
-
-            def gmail_auth_wrapper() -> dict:
-                """Check Gmail authentication status."""
-                return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
-
-            gmail_fetch_tool = tool(fetch_gmail_wrapper)
-            gmail_auth_tool = tool(gmail_auth_wrapper)
-            tools.extend([gmail_fetch_tool, gmail_auth_tool])
+        # Add email agent tool
+        tools.append(email_agent)
 
         # Initialize agent WITHOUT callback handler (best practice for async iterators)
         agent = Agent(
