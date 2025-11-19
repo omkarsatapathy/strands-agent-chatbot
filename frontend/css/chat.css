@@ -108,7 +108,8 @@
     width: 100%;
 }
 
-.bot-message {
+.bot-message,
+.assistant-message {
     justify-content: flex-start;
     width: 100%;
 }
@@ -130,7 +131,8 @@
     border-radius: 12px 12px 2px 12px;
 }
 
-.bot-message .message-content {
+.bot-message .message-content,
+.assistant-message .message-content {
     background: rgba(31, 44, 52, 0.75);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
@@ -144,7 +146,8 @@
     font-size: 14.5px;
 }
 
-.bot-message .message-content strong {
+.bot-message .message-content strong,
+.assistant-message .message-content strong {
     color: #53bdeb;
     font-weight: 600;
 }
@@ -295,6 +298,124 @@
 
 #messageInput::placeholder {
     color: #667781;
+}
+
+/* Audio player styles */
+.audio-player-container {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(11, 20, 26, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+.audio-player-container:hover {
+    background: rgba(11, 20, 26, 0.6);
+    border-color: rgba(0, 168, 132, 0.3);
+}
+
+.audio-status {
+    font-size: 12px;
+    color: #8696a0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.audio-control-button {
+    background: linear-gradient(135deg, rgba(0, 168, 132, 0.2), rgba(0, 168, 132, 0.1));
+    border: 1px solid rgba(0, 168, 132, 0.4);
+    color: #00a884;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 168, 132, 0.2);
+}
+
+.audio-control-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0, 168, 132, 0.35), rgba(0, 168, 132, 0.2));
+    border-color: rgba(0, 168, 132, 0.6);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 168, 132, 0.3);
+}
+
+.audio-control-button:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.audio-control-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.audio-control-button svg {
+    flex-shrink: 0;
+}
+
+.audio-progress-container {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: height 0.2s ease;
+}
+
+.audio-progress-container:hover {
+    height: 8px;
+}
+
+.audio-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00a884, #25d366);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px rgba(0, 168, 132, 0.5);
+}
+
+.audio-time {
+    font-size: 11px;
+    color: #8696a0;
+    font-weight: 500;
+    min-width: 85px;
+    text-align: right;
+    font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.audio-loading {
+    font-size: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* iOS Safe Area Support */

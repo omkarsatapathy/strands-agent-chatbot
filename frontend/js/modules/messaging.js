@@ -169,11 +169,204 @@ export function addMessage(text, sender) {
     textElement.style.whiteSpace = 'pre-wrap';
 
     contentDiv.appendChild(textElement);
+
+    // Add audio player for assistant/bot messages
+    console.log('[addMessage] Checking sender type:', sender);
+    if (sender === 'assistant' || sender === 'bot') {
+        console.log('[addMessage] Creating audio player for bot/assistant message');
+        const audioContainer = createAudioPlayer(text);
+        console.log('[addMessage] Audio container created:', audioContainer);
+        contentDiv.appendChild(audioContainer);
+        console.log('[addMessage] Audio container appended to contentDiv');
+    } else {
+        console.log('[addMessage] Skipping audio player - sender is:', sender);
+    }
+
     messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
 
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Create audio player for text-to-speech with auto-generation
+function createAudioPlayer(text) {
+    console.log('[AudioPlayer] Creating audio player for text:', text.substring(0, 50));
+
+    const audioContainer = document.createElement('div');
+    audioContainer.className = 'audio-player-container';
+
+    // Status text
+    const statusText = document.createElement('div');
+    statusText.className = 'audio-status';
+    statusText.innerHTML = '🎵 Generating audio...';
+
+    // Progress bar container
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'audio-progress-container';
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'audio-progress-bar';
+    progressBar.style.width = '0%';
+
+    progressContainer.appendChild(progressBar);
+
+    // Controls container
+    const controlsContainer = document.createElement('div');
+    controlsContainer.className = 'audio-controls';
+
+    // Play/Pause button
+    const playButton = document.createElement('button');
+    playButton.className = 'audio-control-button';
+    playButton.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+        </svg>
+    `;
+    playButton.disabled = true;
+    playButton.title = 'Play';
+
+    // Time display
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'audio-time';
+    timeDisplay.textContent = '0:00 / 0:00';
+
+    controlsContainer.appendChild(playButton);
+    controlsContainer.appendChild(progressContainer);
+    controlsContainer.appendChild(timeDisplay);
+
+    audioContainer.appendChild(statusText);
+    audioContainer.appendChild(controlsContainer);
+
+    let audioElement = null;
+    let isPlaying = false;
+    let audioGenerated = false;
+
+    // Format time helper
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Update progress bar
+    const updateProgress = () => {
+        if (audioElement) {
+            const progress = (audioElement.currentTime / audioElement.duration) * 100;
+            progressBar.style.width = `${progress}%`;
+            timeDisplay.textContent = `${formatTime(audioElement.currentTime)} / ${formatTime(audioElement.duration)}`;
+        }
+    };
+
+    // Auto-generate audio when created
+    (async () => {
+        try {
+            console.log('[AudioPlayer] Auto-generating audio...');
+
+            const url = `${API_BASE_URL}/api/voice/generate`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: text,
+                    response_format: 'wav'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to generate audio: ${response.status}`);
+            }
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            audioElement = new Audio(audioUrl);
+            audioGenerated = true;
+
+            // Wait for metadata to load
+            audioElement.addEventListener('loadedmetadata', () => {
+                statusText.innerHTML = '🎵 Audio ready';
+                playButton.disabled = false;
+                timeDisplay.textContent = `0:00 / ${formatTime(audioElement.duration)}`;
+            });
+
+            // Update progress
+            audioElement.addEventListener('timeupdate', updateProgress);
+
+            // Handle end
+            audioElement.addEventListener('ended', () => {
+                isPlaying = false;
+                playButton.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
+                statusText.innerHTML = '🎵 Audio ready';
+                progressBar.style.width = '0%';
+                audioElement.currentTime = 0;
+            });
+
+            // Handle errors
+            audioElement.addEventListener('error', (e) => {
+                console.error('[AudioPlayer] Playback error:', e);
+                statusText.innerHTML = '❌ Playback error';
+                playButton.disabled = true;
+            });
+
+            console.log('[AudioPlayer] Audio generated successfully');
+
+        } catch (error) {
+            console.error('[AudioPlayer] Generation error:', error);
+            statusText.innerHTML = '❌ Failed to generate audio';
+            playButton.disabled = true;
+        }
+    })();
+
+    // Play/Pause button handler
+    playButton.addEventListener('click', async () => {
+        if (!audioElement || !audioGenerated) return;
+
+        if (isPlaying) {
+            audioElement.pause();
+            playButton.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+            `;
+            statusText.innerHTML = '⏸️ Paused';
+            isPlaying = false;
+        } else {
+            try {
+                await audioElement.play();
+                playButton.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16"/>
+                        <rect x="14" y="4" width="4" height="16"/>
+                    </svg>
+                `;
+                statusText.innerHTML = '▶️ Playing';
+                isPlaying = true;
+            } catch (error) {
+                console.error('[AudioPlayer] Play error:', error);
+                statusText.innerHTML = '❌ Playback failed';
+            }
+        }
+    });
+
+    // Click on progress bar to seek
+    progressContainer.addEventListener('click', (e) => {
+        if (!audioElement || !audioGenerated) return;
+
+        const rect = progressContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        audioElement.currentTime = percentage * audioElement.duration;
+    });
+
+    console.log('[AudioPlayer] Returning audio container with auto-generation');
+    return audioContainer;
 }
 
 // Track last status update time for minimum display duration

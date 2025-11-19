@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from src.database import DatabaseManager
 from src.config import Config
 from src.logging_config import setup_logging
-from .routes import chat, sessions, messages, documents, models, gmail_auth
+from .routes import chat, sessions, messages, documents, models, gmail_auth, voice
 
 # Setup logging
 logger = setup_logging(Config.LOG_LEVEL, Config.LOG_TO_FILE, Config.LOG_TO_CONSOLE)
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(documents.router)
     app.include_router(models.router)
     app.include_router(gmail_auth.router)
+    app.include_router(voice.router)
 
     # Root endpoint
     @app.get("/")
