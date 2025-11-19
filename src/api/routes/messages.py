@@ -1,39 +1,83 @@
-"""Message management endpoint routes."""
+"""Message endpoints."""
 from fastapi import APIRouter, HTTPException
+from typing import Optional
+from src.api.models import MessageCreate
 from src.database import DatabaseManager
 from src.logging_config import get_logger
-from ..models import MessageCreate
+
+logger = get_logger("chatbot.routes.messages")
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
-logger = get_logger("chatbot.api.messages")
 
-# Database manager will be injected
-db_manager = None
+# Database manager will be injected by the app
+_db_manager: Optional[DatabaseManager] = None
 
 
-def set_db_manager(manager: DatabaseManager):
-    """Set the database manager instance."""
-    global db_manager
-    db_manager = manager
+def set_db_manager(db_manager: DatabaseManager):
+    """Inject database manager instance."""
+    global _db_manager
+    _db_manager = db_manager
 
 
 @router.post("")
-async def add_message(message: MessageCreate):
-    """Add a message to a session."""
+async def create_message(request: MessageCreate):
+    """
+    Add a message to a session.
+
+    Args:
+        request: MessageCreate containing session_id, role, and content
+
+    Returns:
+        Created message information
+    """
+    if not _db_manager:
+        raise HTTPException(status_code=500, detail="Database manager not initialized")
+
+    logger.info(f"Adding message to session {request.session_id}: {request.role}")
+
     try:
-        result = db_manager.add_message(message.session_id, message.role, message.content)
-        return result
+        # Verify session exists
+        session = _db_manager.get_session(request.session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        message = _db_manager.add_message(
+            session_id=request.session_id,
+            role=request.role,
+            content=request.content
+        )
+        return message
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error adding message: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to create message: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create message: {str(e)}")
 
 
 @router.get("/{session_id}")
 async def get_messages(session_id: str):
-    """Get all messages for a session."""
+    """
+    Get all messages for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        List of messages
+    """
+    if not _db_manager:
+        raise HTTPException(status_code=500, detail="Database manager not initialized")
+
     try:
-        messages = db_manager.get_messages(session_id)
+        # Verify session exists
+        session = _db_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        messages = _db_manager.get_messages(session_id)
         return {"messages": messages}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting messages: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get messages: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get messages: {str(e)}")

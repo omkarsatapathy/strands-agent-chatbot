@@ -1,4 +1,4 @@
-/* Button and icon styles */
+/* Buttons and interactive components */
 .icon-button {
     background: transparent;
     border: none;
@@ -19,6 +19,49 @@
 
 .icon-button:active {
     transform: scale(0.9);
+}
+
+.send-button {
+    background: #00a884;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    min-height: 42px;
+    -webkit-appearance: none;
+    appearance: none;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.send-button:hover {
+    background: #06cf9c;
+    transform: scale(1.05);
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .send-button:active {
+        transform: scale(0.95);
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .send-button:active {
+        transform: scale(0.95);
+    }
+}
+
+.send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* Typing indicator */
@@ -55,18 +98,6 @@
     }
 }
 
-/* Pulse animation */
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.6;
-        transform: scale(0.95);
-    }
-}
-
 /* Error and success messages */
 .error-message {
     background: rgba(255, 77, 77, 0.15);
@@ -90,7 +121,7 @@
     border-left: 3px solid #25d366;
 }
 
-/* Loading spinner for better UX */
+/* Loading spinner */
 .loading-spinner {
     display: inline-block;
     width: 16px;
@@ -101,6 +132,51 @@
     animation: spin 0.8s linear infinite;
 }
 
+/* Streaming cursor animation */
+.streaming-cursor {
+    display: inline-block;
+    color: #8696a0;
+    animation: blink 1s infinite;
+    font-weight: normal;
+    margin-left: 1px;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
+.streaming-text {
+    position: relative;
+    animation: textFadeIn 0.3s ease-in;
+}
+
+@keyframes textFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+}
+
+/* Spin animation */
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
@@ -187,4 +263,45 @@
 
 .toast-notification.hiding {
     animation: slideOutRight 0.3s ease-in forwards;
+}
+
+/* Model Provider Select */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-provider-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d7db;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+    min-width: 140px;
+}
+
+.model-provider-select:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.model-provider-select:focus {
+    border-color: #00a884;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.model-provider-select option {
+    background: #1f2c34;
+    color: #d1d7db;
+    padding: 8px;
+}
+
+.model-provider-select option:disabled {
+    color: #667781;
+    font-style: italic;
 }

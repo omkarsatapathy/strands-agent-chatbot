@@ -3,20 +3,29 @@
 // DOM Elements
 let statusText, statusDot, chatMessages;
 
-function initializeUIElements(elements) {
-    statusText = elements.statusText;
-    statusDot = elements.statusDot;
-    chatMessages = elements.chatMessages;
+// Initialize UI elements
+export function initializeUIElements() {
+    statusText = document.querySelector('.status-text');
+    statusDot = document.querySelector('.status-dot');
+    chatMessages = document.getElementById('chatMessages');
+
+    if (!statusText || !statusDot || !chatMessages) {
+        throw new Error('Required UI elements not found');
+    }
+
+    return { statusText, statusDot, chatMessages };
 }
 
 // Update status indicator
-function updateStatus(text, isOnline) {
-    if (statusText) statusText.textContent = text;
-    if (statusDot) statusDot.style.background = isOnline ? '#4ade80' : '#f87171';
+export function updateStatus(text, isOnline) {
+    if (statusText && statusDot) {
+        statusText.textContent = text;
+        statusDot.style.background = isOnline ? '#4ade80' : '#f87171';
+    }
 }
 
 // Show error message
-function showError(message, type = 'error') {
+export function showError(message, type = 'error') {
     if (!chatMessages) return;
 
     const errorDiv = document.createElement('div');
@@ -32,7 +41,7 @@ function showError(message, type = 'error') {
 }
 
 // Show toast notification
-function showToast(message, type = 'success') {
+export function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast-notification ${type}`;
 
@@ -61,7 +70,7 @@ function showToast(message, type = 'success') {
 }
 
 // Show status indicator (replaces typing indicator)
-function showStatusIndicator(statusText) {
+export function showStatusIndicator(statusText) {
     if (!chatMessages) return null;
 
     const statusDiv = document.createElement('div');
@@ -85,9 +94,11 @@ function showStatusIndicator(statusText) {
 }
 
 // Update status indicator text
-function updateStatusIndicator(id, statusText) {
+export function updateStatusIndicator(id, statusText) {
+    if (!chatMessages) return;
+
     const statusDiv = document.getElementById(id);
-    if (statusDiv && chatMessages) {
+    if (statusDiv) {
         const statusElement = statusDiv.querySelector('.status-text-indicator');
         if (statusElement) {
             statusElement.textContent = statusText;
@@ -97,15 +108,15 @@ function updateStatusIndicator(id, statusText) {
 }
 
 // Remove status indicator
-function removeStatusIndicator(id) {
+export function removeStatusIndicator(id) {
     const indicator = document.getElementById(id);
     if (indicator) {
         indicator.remove();
     }
 }
 
-// Show typing indicator (backward compatibility)
-function showTypingIndicator() {
+// Show typing indicator (kept for backward compatibility)
+export function showTypingIndicator() {
     if (!chatMessages) return null;
 
     const typingDiv = document.createElement('div');
@@ -129,7 +140,7 @@ function showTypingIndicator() {
 }
 
 // Remove typing indicator
-function removeTypingIndicator(id) {
+export function removeTypingIndicator(id) {
     const indicator = document.getElementById(id);
     if (indicator) {
         indicator.remove();
@@ -137,23 +148,10 @@ function removeTypingIndicator(id) {
 }
 
 // Format file size
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
-
-export {
-    initializeUIElements,
-    updateStatus,
-    showError,
-    showToast,
-    showStatusIndicator,
-    updateStatusIndicator,
-    removeStatusIndicator,
-    showTypingIndicator,
-    removeTypingIndicator,
-    formatFileSize
-};

@@ -1,35 +1,59 @@
+// Messaging Functions
 import { API_BASE_URL, CONFIG } from '../config.js';
 import { fetchWithRetry } from './api.js';
-import { updateStatus, showError, showStatusIndicator, updateStatusIndicator, removeStatusIndicator, showTypingIndicator, removeTypingIndicator } from './ui.js';
+import {
+    updateStatus,
+    showError,
+    showStatusIndicator,
+    updateStatusIndicator,
+    removeStatusIndicator,
+    showTypingIndicator,
+    removeTypingIndicator
+} from './ui.js';
+
+// DOM Elements
+let chatMessages, messageInput, sendButton, searchButton;
 
 // Conversation history
 let conversationHistory = [];
-let chatMessages, messageInput, sendButton, searchButton;
+
+// State management
 let requestInProgress = false;
+
+// Session manager reference (will be set by main.js)
 let sessionManager = null;
 
-// Track last status update time for minimum display duration
-let lastStatusUpdateTime = 0;
-let statusUpdateQueue = [];
-let isProcessingStatusQueue = false;
+// Initialize messaging elements
+export function initializeMessagingElements() {
+    chatMessages = document.getElementById('chatMessages');
+    messageInput = document.getElementById('messageInput');
+    sendButton = document.getElementById('sendButton');
+    searchButton = document.getElementById('searchButton');
 
-function initializeMessagingElements(elements, manager) {
-    chatMessages = elements.chatMessages;
-    messageInput = elements.messageInput;
-    sendButton = elements.sendButton;
-    searchButton = elements.searchButton;
+    if (!chatMessages || !messageInput || !sendButton) {
+        throw new Error('Required messaging elements not found');
+    }
+
+    return { chatMessages, messageInput, sendButton, searchButton };
+}
+
+// Set session manager reference
+export function setSessionManager(manager) {
     sessionManager = manager;
 }
 
-function getConversationHistory() {
+// Get conversation history
+export function getConversationHistory() {
     return conversationHistory;
 }
 
-function setConversationHistory(history) {
+// Set conversation history
+export function setConversationHistory(history) {
     conversationHistory = history;
 }
 
-function clearConversationHistory() {
+// Clear conversation history
+export function clearConversationHistory() {
     conversationHistory = [];
 }
 
@@ -43,9 +67,11 @@ function convertMarkdownTables(text) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
+        // Check if this is a table row (starts and ends with |)
         if (line.startsWith('|') && line.endsWith('|')) {
+            // Check if it's a separator line (contains only |, -, and spaces)
             if (/^\|[\s\-|]+\|$/.test(line)) {
-                continue;
+                continue; // Skip separator lines
             }
 
             if (!inTable) {
@@ -53,10 +79,13 @@ function convertMarkdownTables(text) {
                 tableRows = [];
             }
 
+            // Parse the row
             const cells = line.split('|').slice(1, -1).map(cell => cell.trim());
             tableRows.push(cells);
         } else {
+            // Not a table line
             if (inTable) {
+                // End of table, convert to HTML
                 result.push(convertTableToHTML(tableRows));
                 tableRows = [];
                 inTable = false;
@@ -65,6 +94,7 @@ function convertMarkdownTables(text) {
         }
     }
 
+    // Handle table at end of text
     if (inTable && tableRows.length > 0) {
         result.push(convertTableToHTML(tableRows));
     }
@@ -77,12 +107,14 @@ function convertTableToHTML(rows) {
 
     let html = '<table class="markdown-table">';
 
+    // First row is header
     html += '<thead><tr>';
     for (const cell of rows[0]) {
         html += `<th>${cell}</th>`;
     }
     html += '</tr></thead>';
 
+    // Remaining rows are body
     if (rows.length > 1) {
         html += '<tbody>';
         for (let i = 1; i < rows.length; i++) {
@@ -100,7 +132,9 @@ function convertTableToHTML(rows) {
 }
 
 // Add message to chat
-function addMessage(text, sender) {
+export function addMessage(text, sender) {
+    console.log('addMessage called with:', text.substring(0, 100));
+
     if (!chatMessages) return;
 
     const messageDiv = document.createElement('div');
@@ -111,12 +145,25 @@ function addMessage(text, sender) {
 
     const textElement = document.createElement('div');
 
+    // Process markdown-style formatting
     let formattedText = text;
+
+    // Convert markdown tables to HTML tables
     formattedText = convertMarkdownTables(formattedText);
+
+    // Convert ## Heading to <h3>
     formattedText = formattedText.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+
+    // Convert ### Heading to <h4>
     formattedText = formattedText.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+
+    // Convert **text** to <strong> (non-greedy match)
     formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Convert newlines to <br>
     formattedText = formattedText.replace(/\n/g, '<br>');
+
+    console.log('Formatted text:', formattedText.substring(0, 100));
 
     textElement.innerHTML = formattedText;
     textElement.style.whiteSpace = 'pre-wrap';
@@ -125,8 +172,14 @@ function addMessage(text, sender) {
     messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
 
+    // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// Track last status update time for minimum display duration
+let lastStatusUpdateTime = 0;
+let statusUpdateQueue = [];
+let isProcessingStatusQueue = false;
 
 // Process status updates with minimum display time
 async function processStatusUpdate(statusId, statusText) {
@@ -135,6 +188,7 @@ async function processStatusUpdate(statusId, statusText) {
     const minDisplayTime = 1500; // 1.5 seconds
 
     if (timeSinceLastUpdate < minDisplayTime) {
+        // Wait for remaining time
         await new Promise(resolve => setTimeout(resolve, minDisplayTime - timeSinceLastUpdate));
     }
 
@@ -142,7 +196,7 @@ async function processStatusUpdate(statusId, statusText) {
     lastStatusUpdateTime = Date.now();
 }
 
-// Queue status updates
+// Queue status updates to ensure minimum display time
 async function queueStatusUpdate(statusId, statusText) {
     statusUpdateQueue.push({ statusId, statusText });
 
@@ -185,10 +239,12 @@ async function handleStreamEvent(eventType, eventData, statusId) {
                 removeStatusIndicator(statusId);
                 updateStatus(data.status, true);
 
+                // Add response to chat
                 if (data.response) {
                     addMessage(data.response, 'bot');
                     conversationHistory.push({ role: 'assistant', content: data.response });
 
+                    // Save assistant response to database
                     try {
                         await sessionManager.saveMessage('assistant', data.response);
                     } catch (error) {
@@ -216,35 +272,41 @@ async function handleStreamEvent(eventType, eventData, statusId) {
     }
 }
 
-// Send message with SSE streaming
-async function sendMessage(isOnline, loadSessions) {
+// Send message with SSE streaming support
+export async function sendMessage() {
     const message = messageInput.value.trim();
-    if (!message || requestInProgress) return;
+    if (!message) return;
 
+    // Check if request already in progress
+    if (requestInProgress) {
+        console.log('Request already in progress, ignoring...');
+        return;
+    }
+
+    // Check network connectivity
     if (!navigator.onLine) {
         showError('No internet connection. Please check your network.');
         return;
     }
 
-    if (!isOnline) {
-        showError('Server is offline. Please wait and try again.');
-        return;
-    }
-
+    // Ensure we have a session
     if (!sessionManager || !sessionManager.getCurrentSessionId()) {
         console.error('No active session');
-        showError('No active session. Creating new session...');
+        showError('No active session. Please reload the page.');
         return;
     }
 
     requestInProgress = true;
 
+    // Add user message to chat
     addMessage(message, 'user');
     conversationHistory.push({ role: 'user', content: message });
 
+    // Save message to database
     try {
         await sessionManager.saveMessage('user', message);
 
+        // Update session title if this is the first message
         if (conversationHistory.length === 1) {
             const title = sessionManager.generateSessionTitle(message);
             await fetch(`${API_BASE_URL}/api/sessions/${sessionManager.getCurrentSessionId()}`, {
@@ -252,21 +314,37 @@ async function sendMessage(isOnline, loadSessions) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title })
             });
-            await loadSessions();
+            // Trigger session reload event
+            window.dispatchEvent(new CustomEvent('sessionNeedsReload'));
         }
     } catch (error) {
         console.error('Failed to save user message:', error);
     }
 
+    // Clear input
     messageInput.value = '';
+    if (messageInput.style) {
+        messageInput.style.height = 'auto';
+    }
+
+    // Disable send button
     sendButton.disabled = true;
     updateStatus('Generating...', true);
 
+    // Show status indicator
     const statusId = showStatusIndicator('⏳ Agent is thinking...');
+
+    // Get last conversation pairs (limit to MAX_CONVERSATION_HISTORY)
     const recentHistory = conversationHistory.slice(-CONFIG.MAX_CONVERSATION_HISTORY);
 
     try {
         console.log('Starting SSE stream to:', `${API_BASE_URL}/api/chat/stream`);
+
+        // Get selected model provider
+        const modelProviderSelect = document.getElementById('modelProvider');
+        const modelProvider = modelProviderSelect ? modelProviderSelect.value : null;
+
+        console.log('Using model provider:', modelProvider || 'default');
 
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
@@ -276,7 +354,8 @@ async function sendMessage(isOnline, loadSessions) {
             body: JSON.stringify({
                 message: message,
                 conversation_history: recentHistory,
-                session_id: sessionManager.getCurrentSessionId()
+                session_id: sessionManager.getCurrentSessionId(),
+                model_provider: modelProvider
             })
         });
 
@@ -284,6 +363,7 @@ async function sendMessage(isOnline, loadSessions) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Read the SSE stream
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -296,10 +376,12 @@ async function sendMessage(isOnline, loadSessions) {
                 break;
             }
 
+            // Decode chunk and add to buffer
             buffer += decoder.decode(value, { stream: true });
 
+            // Process complete SSE messages
             const lines = buffer.split('\n');
-            buffer = lines.pop();
+            buffer = lines.pop(); // Keep incomplete line in buffer
 
             let eventType = 'message';
             let eventData = '';
@@ -310,12 +392,14 @@ async function sendMessage(isOnline, loadSessions) {
                 } else if (line.startsWith('data:')) {
                     eventData = line.substring(5).trim();
                 } else if (line === '') {
+                    // Empty line indicates end of event
                     if (eventData) {
-                        handleStreamEvent(eventType, eventData, statusId);
+                        await handleStreamEvent(eventType, eventData, statusId);
                         eventData = '';
                         eventType = 'message';
                     }
                 } else if (line.startsWith(':')) {
+                    // Heartbeat comment, ignore
                     continue;
                 }
             }
@@ -324,6 +408,7 @@ async function sendMessage(isOnline, loadSessions) {
     } catch (error) {
         removeStatusIndicator(statusId);
 
+        // User-friendly error messages
         let errorMessage = 'Failed to get response. ';
         if (error.message.includes('timeout')) {
             errorMessage += 'Server is taking too long to respond.';
@@ -336,6 +421,7 @@ async function sendMessage(isOnline, loadSessions) {
         showError(errorMessage);
         console.error('Error:', error);
 
+        // Remove the last user message from history if request failed
         if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
             conversationHistory.pop();
         }
@@ -347,13 +433,20 @@ async function sendMessage(isOnline, loadSessions) {
 }
 
 // Perform web search
-async function performWebSearch() {
+export async function performWebSearch() {
     const query = messageInput.value.trim();
-    if (!query || requestInProgress) {
-        if (!query) showError('Please enter a search query');
+    if (!query) {
+        showError('Please enter a search query');
         return;
     }
 
+    // Check if request already in progress
+    if (requestInProgress) {
+        console.log('Request already in progress, ignoring...');
+        return;
+    }
+
+    // Check network connectivity
     if (!navigator.onLine) {
         showError('No internet connection. Please check your network.');
         return;
@@ -388,6 +481,7 @@ async function performWebSearch() {
 
         removeTypingIndicator(typingId);
 
+        // Format search results
         let resultsText = `Search results for "${query}":\n\n`;
         if (data.results && data.results.length > 0) {
             data.results.forEach((result, index) => {
@@ -407,14 +501,30 @@ async function performWebSearch() {
         conversationHistory.push({ role: 'user', content: query });
         conversationHistory.push({ role: 'assistant', content: resultsText });
 
+        // Save to database
         try {
             await sessionManager.saveMessage('user', query);
             await sessionManager.saveMessage('assistant', resultsText);
+
+            // Update session title if this is the first message
+            if (conversationHistory.length === 2) {
+                const title = sessionManager.generateSessionTitle(query);
+                await fetch(`${API_BASE_URL}/api/sessions/${sessionManager.getCurrentSessionId()}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                // Trigger session reload event
+                window.dispatchEvent(new CustomEvent('sessionNeedsReload'));
+            }
         } catch (error) {
             console.error('Failed to save search messages:', error);
         }
 
         messageInput.value = '';
+        if (messageInput.style) {
+            messageInput.style.height = 'auto';
+        }
 
     } catch (error) {
         removeTypingIndicator(typingId);
@@ -427,13 +537,3 @@ async function performWebSearch() {
         updateStatus('Ready', true);
     }
 }
-
-export {
-    initializeMessagingElements,
-    getConversationHistory,
-    setConversationHistory,
-    clearConversationHistory,
-    addMessage,
-    sendMessage,
-    performWebSearch
-};

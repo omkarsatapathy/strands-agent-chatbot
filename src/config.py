@@ -16,12 +16,20 @@ class Config:
     LLAMA_CPP_URL: str = os.getenv("LLAMA_CPP_URL", "http://127.0.0.1:8033")
 
     # Google Custom Search API
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    GOOGLE_SEARCH_API_KEY: str = os.getenv("GOOGLE_SEARCH_API_KEY", "")
     GOOGLE_SEARCH_ENGINE_ID: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
+
+    # Google Gemini API Configuration
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # OpenAI API Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+
+    # Gmail Configuration
+    GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "omkarsatapathy001@gmail.com")
+    GMAIL_DEFAULT_MAX_RESULTS: int = int(os.getenv("GMAIL_DEFAULT_MAX_RESULTS", "25"))
+    GMAIL_FETCH_FULL_BODY: bool = os.getenv("GMAIL_FETCH_FULL_BODY", "True").lower() in ("true", "1", "yes")
 
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
@@ -47,6 +55,7 @@ Your capabilities include:
 - Searching the web for latest news, information, and updates using your Google search tool
 - Providing current date and time in Indian Standard Time (IST) using your datetime tool
 - Analyzing uploaded documents (PDFs, DOCX, TXT) and answering questions about their content using your query_documents tool
+- Fetching Gmail messages and checking Gmail authentication status using your Gmail tools
 
 Guidelines for your responses:
 1. Be conversational and friendly while maintaining professionalism, Dont forget to use emojis. :)
@@ -56,9 +65,10 @@ Guidelines for your responses:
 5. For date and time related queries, use the IST datetime tool to fetch the current time accurately
 6. For mathematical problems or calculations, use the calculator tool
 7. When users ask questions about documents they've uploaded, use the query_documents tool to search through the documents and provide accurate answers based on the document content
-8. If you're unsure about something, be honest and try to find the answer using your available tools
-9. Focus on being helpful and solving the user's actual need rather than providing generic responses
-10. When using tools, explain what information you're fetching in a natural way
+8. For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account. When showing emails, provide a concise summary/brief of ALL fetched emails rather than listing them one by one, unless the user specifically asks for a detailed list.
+9. If you're unsure about something, be honest and try to find the answer using your available tools
+10. Focus on being helpful and solving the user's actual need rather than providing generic responses
+11. When using tools, explain what information you're fetching in a natural way
 
 Remember: You are here to assist, inform, and make the user's experience as smooth and helpful as possible!"""
 
@@ -81,7 +91,7 @@ Remember: You are here to assist, inform, and make the user's experience as smoo
     @classmethod
     def get_google_credentials(cls) -> tuple[str, str]:
         """Get Google API credentials."""
-        return cls.GOOGLE_API_KEY, cls.GOOGLE_SEARCH_ENGINE_ID
+        return cls.GOOGLE_SEARCH_API_KEY, cls.GOOGLE_SEARCH_ENGINE_ID
 
     @classmethod
     def get_server_config(cls) -> tuple[str, int]:

@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     message: str
     conversation_history: List[Dict[str, str]] = []
     session_id: Optional[str] = None
+    model_provider: Optional[str] = None  # 'llamacpp', 'gemini', or 'openai'
 
 
 class SessionCreate(BaseModel):

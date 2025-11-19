@@ -48,11 +48,16 @@
                     <div class="mouse-icon-container" id="mouseIcon">
                         <div class="mouse-icon">🐭</div>
                     </div>
-                    <button id="clearButton" class="icon-button" title="Clear Chat">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"></path>
-                        </svg>
-                    </button>
+                    <div class="header-actions">
+                        <select id="modelProvider" class="model-provider-select" title="Select Model Provider">
+                            <option value="">Loading...</option>
+                        </select>
+                        <button id="clearButton" class="icon-button" title="Clear Chat">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -99,7 +104,6 @@
     </div>
 
     <!-- Modular JavaScript (ES6 Modules) -->
-    <script src="/static/session-manager.js"></script>
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

@@ -1,124 +1,400 @@
+// Main Entry Point
 import { API_BASE_URL } from './config.js';
-import { checkServerHealth } from './modules/api.js';
-import { initializeUIElements, updateStatus, showError } from './modules/ui.js';
-import { initializeMessagingElements, sendMessage, performWebSearch } from './modules/messaging.js';
-import { initializeSessionElements, initializeSessions, loadSessions, toggleSidebar, createNewChat } from './modules/session.js';
-import { initializeDocumentElements, handleFileUpload, loadSessionDocuments } from './modules/document.js';
+import { checkServerHealth, getModelProviders } from './modules/api.js';
+import {
+    initializeUIElements,
+    updateStatus,
+    showError
+} from './modules/ui.js';
+import {
+    initializeMessagingElements,
+    sendMessage,
+    performWebSearch,
+    setSessionManager as setMessagingSessionManager
+} from './modules/messaging.js';
+import {
+    initializeSessionElements,
+    initializeSessions,
+    loadSessions,
+    createNewChat,
+    toggleSidebar,
+    setSessionManager as setSessionManagerRef
+} from './modules/session.js';
+import {
+    initializeDocumentElements,
+    handleFileUpload,
+    loadSessionDocuments,
+    setSessionManager as setDocumentSessionManager
+} from './modules/document.js';
 
-// Import SessionManager (non-module script)
-const SessionManager = window.SessionManager;
+// Session Manager class (imported from session-manager.js)
+class SessionManager {
+    constructor(apiBaseUrl) {
+        this.apiBaseUrl = apiBaseUrl;
+        this.currentSessionId = null;
+        this.sessions = [];
+    }
 
-// DOM Elements
-let chatMessages, messageInput, sendButton, clearButton, searchButton, statusText, statusDot, mouseIcon;
-let sidebar, sessionList, sidebarToggle, newChatButton;
-let uploadButton, fileInput, documentArea, documentList;
+    generateSessionTitle(message) {
+        const maxLength = 30;
+        if (message.length <= maxLength) {
+            return message;
+        }
+        return message.substring(0, maxLength) + '...';
+    }
 
-// State management
-let isOnline = false;
+    async createSession(firstMessage = 'New Chat') {
+        try {
+            const title = this.generateSessionTitle(firstMessage);
+            const response = await fetch(`${this.apiBaseUrl}/api/sessions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ title })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to create session: ${response.status}`);
+            }
+
+            const session = await response.json();
+            this.currentSessionId = session.session_id;
+            return session;
+        } catch (error) {
+            console.error('Error creating session:', error);
+            throw error;
+        }
+    }
+
+    getCurrentSessionId() {
+        return this.currentSessionId;
+    }
+
+    setCurrentSessionId(sessionId) {
+        this.currentSessionId = sessionId;
+    }
+
+    async listSessions(limit = 50) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/sessions?limit=${limit}`);
+
+            if (!response.ok) {
+                throw new Error(`Failed to list sessions: ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.sessions = data.sessions || [];
+            return this.sessions;
+        } catch (error) {
+            console.error('Error listing sessions:', error);
+            throw error;
+        }
+    }
+
+    async getSession(sessionId, includeMessages = true) {
+        try {
+            const response = await fetch(
+                `${this.apiBaseUrl}/api/sessions/${sessionId}?include_messages=${includeMessages}`
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to get session: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting session:', error);
+            throw error;
+        }
+    }
+
+    async deleteSession(sessionId) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/sessions/${sessionId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to delete session: ${response.status}`);
+            }
+
+            this.sessions = this.sessions.filter(s => s.session_id !== sessionId);
+
+            if (this.currentSessionId === sessionId) {
+                this.currentSessionId = null;
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error deleting session:', error);
+            throw error;
+        }
+    }
+
+    async saveMessage(role, content) {
+        if (!this.currentSessionId) {
+            console.warn('No active session to save message to');
+            return null;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: this.currentSessionId,
+                    role,
+                    content
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to save message: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error saving message:', error);
+            throw error;
+        }
+    }
+
+    async getMessages(sessionId) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/messages/${sessionId}`);
+
+            if (!response.ok) {
+                throw new Error(`Failed to get messages: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.messages || [];
+        } catch (error) {
+            console.error('Error getting messages:', error);
+            throw error;
+        }
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) {
+            return 'Just now';
+        } else if (diffMins < 60) {
+            return `${diffMins}m ago`;
+        } else if (diffHours < 24) {
+            return `${diffHours}h ago`;
+        } else if (diffDays < 7) {
+            return `${diffDays}d ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+}
+
+// Global session manager instance
 let sessionManager = null;
 
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Application starting...');
+// Global DOM elements
+let messageInput, sendButton, clearButton, searchButton;
+let sidebarToggle, newChatButton, uploadButton, fileInput;
+let modelProviderSelect;
+
+// Initialize model providers dropdown
+async function initializeModelProviders() {
     try {
-        console.log('1. Initializing DOM elements...');
-        initializeDOMElements();
+        const data = await getModelProviders();
+        const providers = data.providers || [];
+        const defaultProvider = data.default;
 
-        console.log('2. Checking server health...');
-        const healthResult = await checkServerHealth();
-        isOnline = healthResult.isOnline;
-        updateStatus(healthResult.status, healthResult.isOnline);
-        console.log('   Server status:', healthResult);
+        if (!modelProviderSelect) {
+            console.error('Model provider select element not found');
+            return;
+        }
 
-        console.log('3. Setting up event listeners...');
+        // Clear existing options
+        modelProviderSelect.innerHTML = '';
+
+        if (providers.length === 0) {
+            modelProviderSelect.innerHTML = '<option value="">No providers available</option>';
+            modelProviderSelect.disabled = true;
+            return;
+        }
+
+        // Add available providers
+        providers.forEach(provider => {
+            const option = document.createElement('option');
+            option.value = provider.name;
+            option.textContent = provider.display_name;
+            option.disabled = !provider.available;
+
+            if (!provider.available) {
+                option.textContent += ' (Not configured)';
+            }
+
+            if (provider.name === defaultProvider) {
+                option.selected = true;
+            }
+
+            modelProviderSelect.appendChild(option);
+        });
+
+        // Store in localStorage for persistence
+        modelProviderSelect.addEventListener('change', () => {
+            localStorage.setItem('selectedModelProvider', modelProviderSelect.value);
+            console.log('Model provider changed to:', modelProviderSelect.value);
+        });
+
+        // Restore from localStorage if available
+        const savedProvider = localStorage.getItem('selectedModelProvider');
+        if (savedProvider) {
+            const option = Array.from(modelProviderSelect.options).find(
+                opt => opt.value === savedProvider && !opt.disabled
+            );
+            if (option) {
+                modelProviderSelect.value = savedProvider;
+            }
+        }
+
+        console.log('Model providers initialized:', providers);
+    } catch (error) {
+        console.error('Failed to initialize model providers:', error);
+        if (modelProviderSelect) {
+            modelProviderSelect.innerHTML = '<option value="">Error loading providers</option>';
+            modelProviderSelect.disabled = true;
+        }
+    }
+}
+
+// Get currently selected model provider
+export function getSelectedModelProvider() {
+    if (!modelProviderSelect || !modelProviderSelect.value) {
+        return null;
+    }
+    return modelProviderSelect.value;
+}
+
+// Initialize application
+async function initializeApp() {
+    console.log('=== INITIALIZING APPLICATION ===');
+    console.log('API_BASE_URL:', API_BASE_URL);
+
+    try {
+        // Initialize UI elements
+        console.log('[Main] Initializing UI elements...');
+        initializeUIElements();
+
+        // Initialize messaging elements
+        console.log('[Main] Initializing messaging elements...');
+        const messagingElements = initializeMessagingElements();
+        messageInput = messagingElements.messageInput;
+        sendButton = messagingElements.sendButton;
+        searchButton = messagingElements.searchButton;
+
+        // Initialize session elements
+        console.log('[Main] Initializing session elements...');
+        const sessionElements = initializeSessionElements();
+        sidebarToggle = sessionElements.sidebarToggle;
+        newChatButton = sessionElements.newChatButton;
+
+        // Initialize document elements
+        console.log('[Main] Initializing document elements...');
+        const documentElements = initializeDocumentElements();
+        uploadButton = documentElements.uploadButton;
+        fileInput = documentElements.fileInput;
+
+        // Initialize model provider selector
+        console.log('[Main] Initializing model provider selector...');
+        modelProviderSelect = document.getElementById('modelProvider');
+        await initializeModelProviders();
+
+        // Check server health
+        console.log('[Main] Checking server health...');
+        const healthStatus = await checkServerHealth();
+        updateStatus(healthStatus.message, healthStatus.isOnline);
+
+        // Setup event listeners
+        console.log('[Main] Setting up event listeners...');
         setupEventListeners();
+
+        // Auto-resize textarea
         autoResizeTextarea();
+
+        // Setup offline detection
         setupOfflineDetection();
 
-        console.log('4. Initializing session manager...');
+        // Initialize session manager
+        console.log('[Main] Creating session manager...');
         sessionManager = new SessionManager(API_BASE_URL);
-        console.log('   SessionManager created');
 
-        console.log('5. Initializing module elements...');
-        initializeUIElements({ statusText, statusDot, chatMessages });
-        initializeMessagingElements({ chatMessages, messageInput, sendButton, searchButton }, sessionManager);
-        initializeSessionElements({ sidebar, sessionList, sidebarToggle, newChatButton, chatMessages }, sessionManager);
-        initializeDocumentElements({ uploadButton, fileInput, documentArea, documentList }, sessionManager);
+        // Share session manager with modules
+        setMessagingSessionManager(sessionManager);
+        setSessionManagerRef(sessionManager);
+        setDocumentSessionManager(sessionManager);
 
-        console.log('6. Loading sessions...');
-        await initializeSessions(createNewChat);
-        console.log('✅ Application initialized successfully!');
+        // Load sessions and create new session if none exists
+        console.log('[Main] Initializing sessions...');
+        await initializeSessions();
+
+        console.log('=== APPLICATION INITIALIZED SUCCESSFULLY ===');
+
     } catch (error) {
-        console.error('❌ Initialization error:', error);
-        console.error('Stack trace:', error.stack);
-        alert('Failed to initialize application: ' + error.message + '\n\nCheck console for details.');
-    }
-});
-
-// Initialize DOM elements
-function initializeDOMElements() {
-    chatMessages = document.getElementById('chatMessages');
-    messageInput = document.getElementById('messageInput');
-    sendButton = document.getElementById('sendButton');
-    clearButton = document.getElementById('clearButton');
-    searchButton = document.getElementById('searchButton');
-    statusText = document.querySelector('.status-text');
-    statusDot = document.querySelector('.status-dot');
-    mouseIcon = document.getElementById('mouseIcon');
-    sidebar = document.getElementById('sidebar');
-    sessionList = document.getElementById('sessionList');
-    sidebarToggle = document.getElementById('sidebarToggle');
-    newChatButton = document.getElementById('newChatButton');
-    uploadButton = document.getElementById('uploadButton');
-    fileInput = document.getElementById('fileInput');
-    documentArea = document.getElementById('documentArea');
-    documentList = document.getElementById('documentList');
-
-    if (!chatMessages || !messageInput || !sendButton || !statusText || !statusDot || !mouseIcon) {
-        throw new Error('Required DOM elements not found');
+        console.error('[Main] Initialization error:', error);
+        showError('Failed to initialize application. Please refresh the page.');
     }
 }
 
-// Setup offline/online detection
-function setupOfflineDetection() {
-    window.addEventListener('online', async () => {
-        console.log('Network connection restored');
-        showError('Connection restored', 'success');
-        const healthResult = await checkServerHealth();
-        isOnline = healthResult.isOnline;
-        updateStatus(healthResult.status, healthResult.isOnline);
-    });
-
-    window.addEventListener('offline', () => {
-        console.log('Network connection lost');
-        isOnline = false;
-        updateStatus('Offline', false);
-        showError('No internet connection. Please check your network.');
-    });
-}
-
-// Event Listeners
+// Setup event listeners
 function setupEventListeners() {
-    sendButton.addEventListener('click', () => sendMessage(isOnline, loadSessions));
+    console.log('[Main] Setting up event listeners...');
+
+    // Send message
+    sendButton.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            sendMessage(isOnline, loadSessions);
+            sendMessage();
         }
     });
-    if (clearButton) clearButton.addEventListener('click', createNewChat);
-    if (searchButton) searchButton.addEventListener('click', performWebSearch);
-    if (newChatButton) newChatButton.addEventListener('click', createNewChat);
-    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
-    if (uploadButton) uploadButton.addEventListener('click', () => fileInput.click());
-    if (fileInput) fileInput.addEventListener('change', (e) => handleFileUpload(e, createNewChat));
-    messageInput.addEventListener('input', autoResizeTextarea);
 
-    // Listen for session loaded events to load documents
-    window.addEventListener('sessionLoaded', async (e) => {
-        const { sessionId } = e.detail;
-        await loadSessionDocuments(sessionId);
-    });
+    // Clear button / New chat
+    if (clearButton) {
+        clearButton.addEventListener('click', createNewChat);
+    }
+
+    // Search button
+    if (searchButton) {
+        searchButton.addEventListener('click', performWebSearch);
+    }
+
+    // New chat button
+    if (newChatButton) {
+        newChatButton.addEventListener('click', createNewChat);
+    }
+
+    // Sidebar toggle
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+
+    // File upload
+    if (uploadButton) {
+        uploadButton.addEventListener('click', () => fileInput.click());
+    }
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileUpload);
+    }
+
+    // Textarea auto-resize
+    messageInput.addEventListener('input', autoResizeTextarea);
 
     // Prevent zoom on double-tap for iOS
     messageInput.addEventListener('touchend', (e) => {
@@ -129,6 +405,25 @@ function setupEventListeners() {
         }
         messageInput.dataset.lastTap = now;
     });
+
+    // Listen for session loaded event to load documents
+    console.log('[Main] Setting up sessionLoaded event listener...');
+    window.addEventListener('sessionLoaded', async (event) => {
+        console.log('[Main] sessionLoaded event received:', event.detail);
+        const sessionId = event.detail.sessionId;
+        if (sessionId) {
+            console.log('[Main] Loading documents for session:', sessionId);
+            await loadSessionDocuments(sessionId);
+        }
+    });
+
+    // Listen for session needs reload event
+    window.addEventListener('sessionNeedsReload', async () => {
+        console.log('[Main] sessionNeedsReload event received');
+        await loadSessions();
+    });
+
+    console.log('[Main] Event listeners setup complete');
 }
 
 // Auto-resize textarea
@@ -137,7 +432,24 @@ function autoResizeTextarea() {
     messageInput.style.height = messageInput.scrollHeight + 'px';
 }
 
-// Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-    // Any cleanup needed
-});
+// Setup offline/online detection
+function setupOfflineDetection() {
+    console.log('[Main] Setting up offline/online detection...');
+
+    window.addEventListener('online', async () => {
+        console.log('[Main] Network connection restored');
+        showError('Connection restored', 'success');
+        const healthStatus = await checkServerHealth();
+        updateStatus(healthStatus.message, healthStatus.isOnline);
+    });
+
+    window.addEventListener('offline', () => {
+        console.log('[Main] Network connection lost');
+        updateStatus('Offline', false);
+        showError('No internet connection. Please check your network.');
+    });
+}
+
+// Initialize on DOM content loaded
+console.log('[Main] Waiting for DOMContentLoaded...');
+document.addEventListener('DOMContentLoaded', initializeApp);

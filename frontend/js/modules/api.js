@@ -1,7 +1,13 @@
+// API Helper Functions
 import { API_BASE_URL, CONFIG } from '../config.js';
 
+// Sleep utility
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Fetch with timeout
-async function fetchWithTimeout(url, options, timeout = CONFIG.REQUEST_TIMEOUT) {
+export async function fetchWithTimeout(url, options, timeout = CONFIG.REQUEST_TIMEOUT) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -22,7 +28,7 @@ async function fetchWithTimeout(url, options, timeout = CONFIG.REQUEST_TIMEOUT) 
 }
 
 // Retry logic for failed requests
-async function fetchWithRetry(url, options, retries = CONFIG.MAX_RETRIES) {
+export async function fetchWithRetry(url, options, retries = CONFIG.MAX_RETRIES) {
     let lastError;
 
     for (let i = 0; i < retries; i++) {
@@ -48,24 +54,33 @@ async function fetchWithRetry(url, options, retries = CONFIG.MAX_RETRIES) {
     throw lastError || new Error('Request failed after retries');
 }
 
-// Sleep utility
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 // Check server health
-async function checkServerHealth() {
+export async function checkServerHealth() {
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/api/health`, {}, 5000);
         if (response.ok) {
-            return { isOnline: true, status: 'Ready' };
+            return { isOnline: true, message: 'Ready' };
         } else {
-            return { isOnline: false, status: 'Server Error' };
+            return { isOnline: false, message: 'Server Error' };
         }
     } catch (error) {
         console.error('Health check failed:', error);
-        return { isOnline: false, status: 'Offline' };
+        return { isOnline: false, message: 'Offline' };
     }
 }
 
-export { fetchWithTimeout, fetchWithRetry, sleep, checkServerHealth };
+// Get available model providers
+export async function getModelProviders() {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/api/models/providers`, {}, 5000);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error('Failed to get model providers');
+            return { providers: [], default: null };
+        }
+    } catch (error) {
+        console.error('Error getting model providers:', error);
+        return { providers: [], default: null };
+    }
+}

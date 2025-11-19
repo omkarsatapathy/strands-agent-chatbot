@@ -1,4 +1,4 @@
-/* Base styles - Reset and global styles */
+/* Global resets and base styles */
 * {
     margin: 0;
     padding: 0;
@@ -26,30 +26,37 @@ body {
     position: relative;
 }
 
-/* Scrollbar Styles */
-.chat-messages::-webkit-scrollbar,
+/* Scrollbar styles */
 .session-list::-webkit-scrollbar {
     width: 6px;
 }
 
-.chat-messages::-webkit-scrollbar-track,
 .session-list::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.chat-messages::-webkit-scrollbar-thumb,
 .session-list::-webkit-scrollbar-thumb {
     background: rgba(134, 150, 160, 0.3);
     border-radius: 3px;
 }
 
-.chat-messages::-webkit-scrollbar-thumb:hover,
 .session-list::-webkit-scrollbar-thumb:hover {
     background: rgba(134, 150, 160, 0.5);
 }
 
-/* Prevent overscroll bounce on iOS */
-.chat-messages {
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(134, 150, 160, 0.3);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(134, 150, 160, 0.5);
 }
