@@ -140,26 +140,48 @@ class GmailAuthManager:
         return creds is not None and creds.valid
 
 
+def _get_email_body(payload: Dict) -> str:
+    """Extract email body from message payload."""
+    body = ""
+
+    if 'parts' in payload:
+        for part in payload['parts']:
+            if part['mimeType'] == 'text/plain':
+                if 'data' in part['body']:
+                    import base64
+                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                    break
+            elif part['mimeType'] == 'text/html' and not body:
+                if 'data' in part['body']:
+                    import base64
+                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+    elif 'body' in payload and 'data' in payload['body']:
+        import base64
+        body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+
+    return body
+
+
 @tool
 def fetch_gmail_messages(
-    max_results: int = 10,
+    max_results: int = 15,
     query: str = "",
     user_id: str = "default"
 ) -> Dict[str, Any]:
     """
     Strands tool: Fetch Gmail messages for the authenticated user.
 
-    This tool retrieves email messages from Gmail. The user must authenticate
-    first via OAuth 2.0. Use query parameter for filtering (e.g., "is:unread",
-    "from:example@gmail.com", "subject:important").
+    This tool retrieves email messages from Gmail with full message body.
+    The user must authenticate first via OAuth 2.0. Use query parameter for
+    filtering (e.g., "is:unread", "from:example@gmail.com", "subject:important").
 
     Args:
-        max_results: Maximum number of messages to fetch (default: 10, max: 50)
+        max_results: Maximum number of messages to fetch (default: 15, max: 50)
         query: Gmail search query for filtering messages (default: "" for all messages)
         user_id: User identifier (default: "default")
 
     Returns:
-        Dictionary containing list of messages or error information
+        Dictionary containing list of messages with id, subject, from, date, snippet, and body
     """
     auth_manager = GmailAuthManager(user_id)
 
@@ -220,16 +242,27 @@ def fetch_gmail_messages(
                 from_email = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown')
                 date = next((h['value'] for h in headers if h['name'].lower() == 'date'), 'Unknown')
 
-                # Get snippet
+                # Get snippet and full body
                 snippet = msg_data.get('snippet', '')
+                body = _get_email_body(msg_data['payload'])
 
-                detailed_messages.append({
+                # Truncate body to reasonable length (5000 chars)
+                if len(body) > 5000:
+                    body = body[:5000] + "... [truncated]"
+
+                message_info = {
                     'id': msg_data['id'],
                     'subject': subject,
                     'from': from_email,
                     'date': date,
                     'snippet': snippet
-                })
+                }
+
+                # Add body if fetched and non-empty
+                if body:
+                    message_info['body'] = body
+
+                detailed_messages.append(message_info)
 
             except HttpError as e:
                 logger.warning(f"Failed to fetch message {msg['id']}: {str(e)}")

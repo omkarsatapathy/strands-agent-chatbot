@@ -28,6 +28,8 @@ class Config:
 
     # Gmail Configuration
     GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "omkarsatapathy001@gmail.com")
+    GMAIL_DEFAULT_MAX_RESULTS: int = int(os.getenv("GMAIL_DEFAULT_MAX_RESULTS", "25"))
+    GMAIL_FETCH_FULL_BODY: bool = os.getenv("GMAIL_FETCH_FULL_BODY", "True").lower() in ("true", "1", "yes")
 
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
@@ -63,7 +65,7 @@ Guidelines for your responses:
 5. For date and time related queries, use the IST datetime tool to fetch the current time accurately
 6. For mathematical problems or calculations, use the calculator tool
 7. When users ask questions about documents they've uploaded, use the query_documents tool to search through the documents and provide accurate answers based on the document content
-8. For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account.
+8. For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account. When showing emails, provide a concise summary/brief of ALL fetched emails rather than listing them one by one, unless the user specifically asks for a detailed list.
 9. If you're unsure about something, be honest and try to find the answer using your available tools
 10. Focus on being helpful and solving the user's actual need rather than providing generic responses
 11. When using tools, explain what information you're fetching in a natural way

@@ -92,20 +92,19 @@ async def create_streaming_response(
             from strands import tool
 
             # Gmail tools with configured user email as user_id
-            def fetch_gmail_wrapper(max_results: int = 10, query: str = "") -> dict:
+            def fetch_gmail_wrapper(query: str = "") -> dict:
                 """Fetch Gmail messages for the authenticated user.
 
-                Use this tool to retrieve email messages from Gmail. Use query parameter
+                This tool fetches the 15 most recent Gmail messages. Use query parameter
                 for filtering (e.g., "is:unread", "from:example@gmail.com", "subject:important").
 
                 Args:
-                    max_results: Maximum number of messages to fetch (default: 10, max: 50)
                     query: Gmail search query for filtering messages (default: "" for all messages)
 
                 Returns:
-                    Dictionary containing list of messages or error information
+                    Dictionary containing list of messages with full body content
                 """
-                return fetch_gmail_messages(max_results=max_results, query=query, user_id=Config.GMAIL_USER_ID)
+                return fetch_gmail_messages(max_results=Config.GMAIL_DEFAULT_MAX_RESULTS, query=query, user_id=Config.GMAIL_USER_ID)
 
             def gmail_auth_wrapper() -> dict:
                 """Check Gmail authentication status.
@@ -139,9 +138,9 @@ async def create_streaming_response(
             # If no session_id, create Gmail wrappers with configured user email
             from strands import tool
 
-            def fetch_gmail_wrapper(max_results: int = 10, query: str = "") -> dict:
+            def fetch_gmail_wrapper(query: str = "") -> dict:
                 """Fetch Gmail messages for the authenticated user."""
-                return fetch_gmail_messages(max_results=max_results, query=query, user_id=Config.GMAIL_USER_ID)
+                return fetch_gmail_messages(max_results=Config.GMAIL_DEFAULT_MAX_RESULTS, query=query, user_id=Config.GMAIL_USER_ID)
 
             def gmail_auth_wrapper() -> dict:
                 """Check Gmail authentication status."""
