@@ -15,6 +15,7 @@ from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
 from ..tools.document_rag import query_documents
+from ..tools.gmail import fetch_gmail_messages, gmail_auth_status
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
 
@@ -86,9 +87,35 @@ async def create_streaming_response(
         # Build tools list
         tools = [calculator, google_search_with_context, get_current_datetime_ist]
 
-        # Add document query tool with session_id context if session provided
+        # Add session-specific tools with session_id context
         if session_id:
-            # Create a wrapper function that binds session_id
+            from strands import tool
+
+            # Gmail tools with configured user email as user_id
+            def fetch_gmail_wrapper(max_results: int = 10, query: str = "") -> dict:
+                """Fetch Gmail messages for the authenticated user.
+
+                Use this tool to retrieve email messages from Gmail. Use query parameter
+                for filtering (e.g., "is:unread", "from:example@gmail.com", "subject:important").
+
+                Args:
+                    max_results: Maximum number of messages to fetch (default: 10, max: 50)
+                    query: Gmail search query for filtering messages (default: "" for all messages)
+
+                Returns:
+                    Dictionary containing list of messages or error information
+                """
+                return fetch_gmail_messages(max_results=max_results, query=query, user_id=Config.GMAIL_USER_ID)
+
+            def gmail_auth_wrapper() -> dict:
+                """Check Gmail authentication status.
+
+                Returns:
+                    Dictionary with authentication status
+                """
+                return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
+
+            # Document query tool
             def query_documents_wrapper(query: str) -> dict:
                 """Query uploaded documents for information using RAG.
 
@@ -102,10 +129,27 @@ async def create_streaming_response(
                 """
                 return query_documents(query=query, session_id=session_id)
 
-            # Register as a tool
-            from strands import tool
+            # Register session-specific tools
+            gmail_fetch_tool = tool(fetch_gmail_wrapper)
+            gmail_auth_tool = tool(gmail_auth_wrapper)
             query_docs_tool = tool(query_documents_wrapper)
-            tools.append(query_docs_tool)
+
+            tools.extend([gmail_fetch_tool, gmail_auth_tool, query_docs_tool])
+        else:
+            # If no session_id, create Gmail wrappers with configured user email
+            from strands import tool
+
+            def fetch_gmail_wrapper(max_results: int = 10, query: str = "") -> dict:
+                """Fetch Gmail messages for the authenticated user."""
+                return fetch_gmail_messages(max_results=max_results, query=query, user_id=Config.GMAIL_USER_ID)
+
+            def gmail_auth_wrapper() -> dict:
+                """Check Gmail authentication status."""
+                return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
+
+            gmail_fetch_tool = tool(fetch_gmail_wrapper)
+            gmail_auth_tool = tool(gmail_auth_wrapper)
+            tools.extend([gmail_fetch_tool, gmail_auth_tool])
 
         # Initialize agent WITHOUT callback handler (best practice for async iterators)
         agent = Agent(
@@ -130,7 +174,11 @@ async def create_streaming_response(
             'google_search_with_context': '🌐 Searching the web',
             'get_current_datetime_ist': '🕐 Getting current time',
             'query_documents': '📄 Analyzing documents',
-            'query_documents_wrapper': '📄 Analyzing documents'
+            'query_documents_wrapper': '📄 Analyzing documents',
+            'fetch_gmail_messages': '📧 Fetching Gmail messages',
+            'fetch_gmail_wrapper': '📧 Fetching Gmail messages',
+            'gmail_auth_status': '🔐 Checking Gmail auth status',
+            'gmail_auth_wrapper': '🔐 Checking Gmail auth status'
         }
 
         # Track state

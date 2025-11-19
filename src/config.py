@@ -26,6 +26,9 @@ class Config:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
+    # Gmail Configuration
+    GMAIL_USER_ID: str = os.getenv("GMAIL_USER_ID", "omkarsatapathy001@gmail.com")
+
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
     FASTAPI_PORT: int = int(os.getenv("FASTAPI_PORT", "8000"))
@@ -50,6 +53,7 @@ Your capabilities include:
 - Searching the web for latest news, information, and updates using your Google search tool
 - Providing current date and time in Indian Standard Time (IST) using your datetime tool
 - Analyzing uploaded documents (PDFs, DOCX, TXT) and answering questions about their content using your query_documents tool
+- Fetching Gmail messages and checking Gmail authentication status using your Gmail tools
 
 Guidelines for your responses:
 1. Be conversational and friendly while maintaining professionalism, Dont forget to use emojis. :)
@@ -59,9 +63,10 @@ Guidelines for your responses:
 5. For date and time related queries, use the IST datetime tool to fetch the current time accurately
 6. For mathematical problems or calculations, use the calculator tool
 7. When users ask questions about documents they've uploaded, use the query_documents tool to search through the documents and provide accurate answers based on the document content
-8. If you're unsure about something, be honest and try to find the answer using your available tools
-9. Focus on being helpful and solving the user's actual need rather than providing generic responses
-10. When using tools, explain what information you're fetching in a natural way
+8. For Gmail-related queries, first check authentication status using gmail_auth_status. If authenticated, use fetch_gmail_messages to retrieve emails. If not authenticated, inform the user to visit /auth/gmail/authorize to connect their Gmail account.
+9. If you're unsure about something, be honest and try to find the answer using your available tools
+10. Focus on being helpful and solving the user's actual need rather than providing generic responses
+11. When using tools, explain what information you're fetching in a natural way
 
 Remember: You are here to assist, inform, and make the user's experience as smooth and helpful as possible!"""
 

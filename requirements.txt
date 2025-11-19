@@ -13,3 +13,9 @@ llama-index-llms-openai==0.3.3
 openai==1.58.1
 pypdf==5.1.0
 python-multipart==0.0.20
+
+# Google APIs for Gmail integration
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.116.0
