@@ -86,7 +86,7 @@ async def create_streaming_response(
         tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
 
         # Build tools list for primary orchestrator agent
-        primary_tools = [calculator, google_search_with_context, get_current_datetime_ist]
+        primary_tools = [calculator, get_current_datetime_ist]
 
         # Add session-specific tools if session_id is provided
         if session_id:
@@ -104,6 +104,17 @@ async def create_streaming_response(
             callback_handler=None
         )
 
+        # Create Researcher Agent (specialized for web research and information gathering)
+        researcher_tools = [google_search_with_context]
+        researcher_agent = Agent(
+            name="Researcher Agent",
+            model=model,
+            tools=researcher_tools,
+            system_prompt=Config.get_researcher_agent_prompt(),
+            hooks=[tool_limit_hook],
+            callback_handler=None
+        )
+
         # Create Primary Orchestrator Agent
         orchestrator_agent = Agent(
             name="Orchestrator Agent",
@@ -115,9 +126,9 @@ async def create_streaming_response(
             callback_handler=None
         )
 
-        # Create Swarm with both agents
+        # Create Swarm with all agents
         swarm = Swarm(
-            nodes=[orchestrator_agent, news_reader_agent],
+            nodes=[orchestrator_agent, news_reader_agent, researcher_agent],
             entry_point=orchestrator_agent,
             max_handoffs=3,
             max_iterations=5
