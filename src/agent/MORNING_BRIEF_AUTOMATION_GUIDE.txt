@@ -1,0 +1,371 @@
+================================================================================
+                    MORNING BRIEF AUTOMATION SETUP GUIDE
+                           macOS LaunchAgent
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. What Was Set Up
+2. How It Was Done (Step-by-Step Commands)
+3. How to Change the Python File Location
+4. How to Change the Schedule Time
+5. How to Start/Stop the Automation
+6. How to Test the Automation
+7. Troubleshooting
+8. How to Remove the Automation
+
+================================================================================
+1. WHAT WAS SET UP
+================================================================================
+
+A macOS LaunchAgent was created to automatically run your morning brief script
+at 8:00 AM every day.
+
+Location of files:
+- LaunchAgent plist: ~/Library/LaunchAgents/com.morningbrief.daily.plist
+- Python script: /Users/omkarsatapaphy/python_works/agentic_chatbot/src/agent/morning_brief.py
+- Output directory: ~/Desktop/morning_brief/
+- Log files: ~/Desktop/morning_brief/morning_brief.log (and morning_brief_error.log)
+
+================================================================================
+2. HOW IT WAS DONE (STEP-BY-STEP COMMANDS)
+================================================================================
+
+Step 1: Find Python path
+-------------------------
+Command:
+  which python3
+
+Output: /opt/homebrew/Caskroom/miniconda/base/bin/python3
+
+
+Step 2: Check if LaunchAgents directory exists
+-----------------------------------------------
+Command:
+  ls -la ~/Library/LaunchAgents
+
+This verifies the directory exists for placing our plist file.
+
+
+Step 3: Create the LaunchAgent plist file
+------------------------------------------
+Created file: ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+Content:
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.morningbrief.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/Caskroom/miniconda/base/bin/python3</string>
+        <string>/Users/omkarsatapaphy/python_works/agentic_chatbot/src/agent/morning_brief.py</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/omkarsatapaphy/Desktop/morning_brief/morning_brief.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/omkarsatapaphy/Desktop/morning_brief/morning_brief_error.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/omkarsatapaphy/python_works/agentic_chatbot</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+
+
+Step 4: Load the LaunchAgent
+-----------------------------
+Command:
+  launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+This activates the LaunchAgent.
+
+
+Step 5: Verify it's running
+----------------------------
+Command:
+  launchctl list | grep morningbrief
+
+Output: -	0	com.morningbrief.daily
+
+This confirms the agent is loaded and active.
+
+================================================================================
+3. HOW TO CHANGE THE PYTHON FILE LOCATION
+================================================================================
+
+If you move your Python script to a different location:
+
+Step 1: Unload the current LaunchAgent
+---------------------------------------
+  launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 2: Edit the plist file
+----------------------------
+  nano ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+Or use any text editor:
+  open -e ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 3: Update the path in ProgramArguments section
+----------------------------------------------------
+Find this section:
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/Caskroom/miniconda/base/bin/python3</string>
+        <string>/Users/omkarsatapaphy/python_works/agentic_chatbot/src/agent/morning_brief.py</string>
+    </array>
+
+Change the second <string> to your new path:
+        <string>/YOUR/NEW/PATH/TO/morning_brief.py</string>
+
+Also update the WorkingDirectory if needed:
+    <key>WorkingDirectory</key>
+    <string>/YOUR/NEW/PROJECT/ROOT/DIRECTORY</string>
+
+
+Step 4: Save and reload
+------------------------
+  launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 5: Verify
+--------------
+  launchctl list | grep morningbrief
+
+================================================================================
+4. HOW TO CHANGE THE SCHEDULE TIME
+================================================================================
+
+To run at a different time (e.g., 7:30 AM instead of 8:00 AM):
+
+Step 1: Unload the LaunchAgent
+-------------------------------
+  launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 2: Edit the plist file
+----------------------------
+  nano ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 3: Update the StartCalendarInterval section
+-------------------------------------------------
+Find this section:
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+Change to your desired time (24-hour format):
+For 7:30 AM:
+        <integer>7</integer>  (Hour)
+        <integer>30</integer> (Minute)
+
+For 9:15 AM:
+        <integer>9</integer>  (Hour)
+        <integer>15</integer> (Minute)
+
+For 6:00 PM:
+        <integer>18</integer> (Hour)
+        <integer>0</integer>  (Minute)
+
+
+Step 4: Save and reload
+------------------------
+  launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+BONUS: Run multiple times per day
+----------------------------------
+You can run the script at multiple times by using an array:
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>8</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>18</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+This would run at 8:00 AM and 6:00 PM daily.
+
+================================================================================
+5. HOW TO START/STOP THE AUTOMATION
+================================================================================
+
+Stop (unload) the automation:
+------------------------------
+  launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Start (load) the automation:
+-----------------------------
+  launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Restart the automation:
+------------------------
+  launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist && \
+  launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Check if it's running:
+----------------------
+  launchctl list | grep morningbrief
+
+Output should show: -	0	com.morningbrief.daily
+
+================================================================================
+6. HOW TO TEST THE AUTOMATION
+================================================================================
+
+Don't want to wait until 8:00 AM? Run it immediately:
+
+Command:
+--------
+  launchctl start com.morningbrief.daily
+
+This triggers the script right away, regardless of the schedule.
+
+
+Or run the Python script directly:
+-----------------------------------
+  cd /Users/omkarsatapaphy/python_works/agentic_chatbot
+  python3 src/agent/morning_brief.py
+
+
+Check the logs after testing:
+------------------------------
+  cat ~/Desktop/morning_brief/morning_brief.log
+  cat ~/Desktop/morning_brief/morning_brief_error.log
+
+================================================================================
+7. TROUBLESHOOTING
+================================================================================
+
+Problem: The script doesn't run at the scheduled time
+------------------------------------------------------
+Solution 1: Check if the LaunchAgent is loaded
+  launchctl list | grep morningbrief
+
+Solution 2: Check the error log
+  cat ~/Desktop/morning_brief/morning_brief_error.log
+
+Solution 3: Verify the plist file syntax
+  plutil -lint ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+Solution 4: Check file permissions
+  ls -l ~/Library/LaunchAgents/com.morningbrief.daily.plist
+  chmod 644 ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Problem: Python dependencies not found
+---------------------------------------
+Solution: Make sure you're using the correct Python environment.
+If you use a virtual environment, update the ProgramArguments:
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/your/venv/bin/python</string>
+        <string>/Users/omkarsatapaphy/python_works/agentic_chatbot/src/agent/morning_brief.py</string>
+    </array>
+
+
+Problem: Script runs but no output files
+-----------------------------------------
+Solution: Check the log files for errors
+  cat ~/Desktop/morning_brief/morning_brief.log
+  cat ~/Desktop/morning_brief/morning_brief_error.log
+
+
+Problem: LaunchAgent not loading
+---------------------------------
+Solution 1: Check plist syntax
+  plutil -lint ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+Solution 2: View system logs
+  log show --predicate 'subsystem == "com.apple.launchd"' --last 1h | grep morningbrief
+
+================================================================================
+8. HOW TO REMOVE THE AUTOMATION
+================================================================================
+
+If you want to completely remove the automation:
+
+Step 1: Unload the LaunchAgent
+-------------------------------
+  launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 2: Delete the plist file
+------------------------------
+  rm ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+
+Step 3: Verify it's removed
+----------------------------
+  launchctl list | grep morningbrief
+
+This should return nothing.
+
+================================================================================
+ADDITIONAL RESOURCES
+================================================================================
+
+macOS LaunchAgent documentation:
+- man launchctl
+- man launchd.plist
+
+View all your LaunchAgents:
+  ls -la ~/Library/LaunchAgents/
+
+View all running LaunchAgents:
+  launchctl list
+
+================================================================================
+QUICK REFERENCE COMMANDS
+================================================================================
+
+Load (start):        launchctl load ~/Library/LaunchAgents/com.morningbrief.daily.plist
+Unload (stop):       launchctl unload ~/Library/LaunchAgents/com.morningbrief.daily.plist
+Test run now:        launchctl start com.morningbrief.daily
+Check status:        launchctl list | grep morningbrief
+Edit config:         nano ~/Library/LaunchAgents/com.morningbrief.daily.plist
+View logs:           cat ~/Desktop/morning_brief/morning_brief.log
+View errors:         cat ~/Desktop/morning_brief/morning_brief_error.log
+Validate plist:      plutil -lint ~/Library/LaunchAgents/com.morningbrief.daily.plist
+
+Manual Kick start : launchctl kickstart -k gui/$(id -u)/com.morningbrief.daily
+
+================================================================================
+                              END OF GUIDE
+================================================================================
