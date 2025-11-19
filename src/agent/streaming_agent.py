@@ -1,14 +1,16 @@
-"""Streaming agent implementation for real-time tool execution updates.
+"""Streaming agent implementation with Swarm pattern for multi-agent coordination.
 
 This implementation follows Strands best practices:
 - Uses async iterators (stream_async) for FastAPI
 - No callback handler (async iterator provides all events)
 - Processes events directly as they stream from the agent
+- Implements Swarm pattern for autonomous agent collaboration
 """
 import json
 import time
 from typing import List, Dict, AsyncGenerator, Optional
 from strands import Agent
+from strands.multiagent import Swarm
 from strands_tools import calculator
 from ..config import Config
 from ..logging_config import get_logger
@@ -17,7 +19,6 @@ from ..tools.datetime_ist import get_current_datetime_ist
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
 from .gmail_tool_wrappers import get_session_tools, get_gmail_tools
-from strands import tool
 
 logger = get_logger("chatbot.streaming")
 
@@ -84,37 +85,42 @@ async def create_streaming_response(
         # Create hook for tool limit enforcement
         tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
 
-        # Build tools list
-        tools = [calculator, google_search_with_context, get_current_datetime_ist]
+        # Build tools list for primary orchestrator agent
+        primary_tools = [calculator, google_search_with_context, get_current_datetime_ist]
 
-        # Capture session_id and model in closure
-        _session_id = session_id
-        _model = model
+        # Add session-specific tools if session_id is provided
+        if session_id:
+            session_tools = get_session_tools(session_id)
+            primary_tools.extend(session_tools)
 
-        @tool
-        def email_agent(prompt: str):
-            """Specialized agent for handling email-related tasks."""
-            sub_tools = get_session_tools(_session_id) if _session_id else get_gmail_tools()
-            email_sub_agent = Agent(
-                model=_model,
-                tools=sub_tools,
-                system_prompt=Config.get_email_agent_system_prompt()
-            )
-            response = email_sub_agent(prompt)
-            return response
-
-        # Add email agent tool
-        tools.append(email_agent)
-
-        # Initialize agent WITHOUT callback handler (best practice for async iterators)
-        agent = Agent(
+        # Create News Reader Agent (specialized for email and news analysis)
+        news_tools = get_gmail_tools()
+        news_reader_agent = Agent(
+            name="News Reader Agent",
             model=model,
-            tools=tools,
+            tools=news_tools,
+            system_prompt=Config.get_news_reader_agent_prompt(),
+            hooks=[tool_limit_hook],
+            callback_handler=None
+        )
+
+        # Create Primary Orchestrator Agent
+        orchestrator_agent = Agent(
+            name="Orchestrator Agent",
+            model=model,
+            tools=primary_tools,
             system_prompt=Config.get_system_prompt(),
             messages=history_messages,
             hooks=[tool_limit_hook],
-            # verbose = True,
-            callback_handler=None  # No callback handler needed with stream_async
+            callback_handler=None
+        )
+
+        # Create Swarm with both agents
+        swarm = Swarm(
+            nodes=[orchestrator_agent, news_reader_agent],
+            entry_point=orchestrator_agent,
+            max_handoffs=3,
+            max_iterations=5
         )
 
         # Send connected event
@@ -130,10 +136,11 @@ async def create_streaming_response(
             'get_current_datetime_ist': '🕐 Getting current time',
             'query_documents': '📄 Analyzing documents',
             'query_documents_wrapper': '📄 Analyzing documents',
-            'fetch_gmail_messages': '📧 Fetching Gmail messages',
-            'fetch_gmail_wrapper': '📧 Fetching Gmail messages',
+            'fetch_gmail_messages': '📧 Fetching news from emails',
+            'fetch_gmail_wrapper': '📧 Fetching news from emails',
             'gmail_auth_status': '🔐 Checking Gmail auth status',
-            'gmail_auth_wrapper': '🔐 Checking Gmail auth status'
+            'gmail_auth_wrapper': '🔐 Checking Gmail auth status',
+            'handoff_to_agent': '🔄 Handing off to News Reader Agent'
         }
 
         # Track state
@@ -142,47 +149,61 @@ async def create_streaming_response(
         complete_response = ""
         last_heartbeat = time.time()
 
-        # Stream events using async iterator (Strands best practice)
-        async for event in agent.stream_async(message):
+        # Stream events using async iterator (Strands best practice with Swarm)
+        async for event in swarm.stream_async(message):
+            event_type = event.get("type")
 
-            # Handle text generation (response chunks)
-            if "data" in event:
-                text_chunk = event["data"]
-                complete_response += text_chunk
-                # Note: We don't stream text chunks, only tool events
-                # Text will be sent at the end
+            # Track multi-agent node execution
+            if event_type == "multiagent_node_start":
+                agent_name = event.get('node_id', 'Unknown')
+                logger.info(f"🔄 Agent {agent_name} taking control")
+                yield f"event: thinking\ndata: {json.dumps({'status': f'{agent_name} working...'})}\n\n"
 
-            # Handle tool usage events
-            elif "current_tool_use" in event:
-                tool_use = event["current_tool_use"]
+            # Monitor agent events (nested events from individual agents)
+            elif event_type == "multiagent_node_stream":
+                inner_event = event.get("event", {})
 
-                # Only emit unique tool uses (avoid duplicates)
-                if previous_tool_use != tool_use and tool_use.get("name"):
-                    previous_tool_use = tool_use
-                    tool_count += 1
+                # Handle text generation from agents
+                if "data" in inner_event:
+                    text_chunk = inner_event["data"]
+                    complete_response += text_chunk
 
-                    tool_name = tool_use.get('name', 'unknown')
-                    display_name = tool_display_names.get(tool_name, f'🔧 {tool_name}')
+                # Handle tool usage events from agents
+                elif "current_tool_use" in inner_event:
+                    tool_use = inner_event["current_tool_use"]
 
-                    tool_data = {
-                        'status': display_name,
-                        'tool_name': tool_name,
-                        'display_name': display_name,
-                        'tool_count': tool_count,
-                        'max_tools': Config.MAX_TOOL_CALLS
-                    }
+                    # Only emit unique tool uses (avoid duplicates)
+                    if previous_tool_use != tool_use and tool_use.get("name"):
+                        previous_tool_use = tool_use
+                        tool_count += 1
 
-                    yield f"event: tool\ndata: {json.dumps(tool_data)}\n\n"
-                    logger.info(f"🔧 Tool #{tool_count}/{Config.MAX_TOOL_CALLS}: {display_name}")
+                        tool_name = tool_use.get('name', 'unknown')
+                        display_name = tool_display_names.get(tool_name, f'🔧 {tool_name}')
 
-            # Handle event loop lifecycle events
-            elif event.get("init_event_loop", False):
-                logger.info("🤖 Agent initialized...")
-                yield f"event: thinking\ndata: {json.dumps({'status': 'Getting ready...'})}\n\n"
+                        tool_data = {
+                            'status': display_name,
+                            'tool_name': tool_name,
+                            'display_name': display_name,
+                            'tool_count': tool_count,
+                            'max_tools': Config.MAX_TOOL_CALLS
+                        }
 
-            elif event.get("start_event_loop", False):
-                logger.info("⚙️  Agent is processing...")
-                yield f"event: thinking\ndata: {json.dumps({'status': 'Processing...'})}\n\n"
+                        yield f"event: tool\ndata: {json.dumps(tool_data)}\n\n"
+                        logger.info(f"🔧 Tool #{tool_count}/{Config.MAX_TOOL_CALLS}: {display_name}")
+
+            # Track handoffs between agents
+            elif event_type == "multiagent_handoff":
+                from_agents = ", ".join(event.get('from_node_ids', []))
+                to_agents = ", ".join(event.get('to_node_ids', []))
+                logger.info(f"🔀 Handoff: {from_agents} → {to_agents}")
+                yield f"event: thinking\ndata: {json.dumps({'status': f'Handing off to {to_agents}'})}\n\n"
+
+            # Get final result
+            elif event_type == "multiagent_result":
+                result = event.get("result")
+                if result:
+                    status = getattr(result, 'status', 'completed')
+                    logger.info(f"✅ Swarm completed: {status}")
 
             # Send periodic heartbeat to keep connection alive
             if time.time() - last_heartbeat > 15:
