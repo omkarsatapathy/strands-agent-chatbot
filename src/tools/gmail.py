@@ -76,17 +76,50 @@ class GmailAuthManager:
         return creds is not None and creds.valid
 
 
+def _clean_email_text(text: str) -> str:
+    """Clean up email text by removing extra whitespace and formatting."""
+    import re
+    # Replace multiple newlines with double newline
+    text = re.sub(r'\r\n', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Replace non-breaking spaces
+    text = text.replace('\xa0', ' ')
+    # Remove lines that are just whitespace
+    lines = [line.rstrip() for line in text.split('\n')]
+    text = '\n'.join(line for line in lines if line.strip() or line == '')
+    # Remove excessive spaces
+    text = re.sub(r' {2,}', ' ', text)
+    return text.strip()
+
+
 def _get_email_body(payload: Dict) -> str:
     """Extract email body from message payload."""
+    body = ""
+
+    # Try to get text/plain first (cleaner than HTML)
     if 'parts' in payload:
         for part in payload['parts']:
+            # Handle nested multipart
+            if 'parts' in part:
+                body = _get_email_body(part)
+                if body:
+                    return body
+            # Get text/plain
             if part['mimeType'] == 'text/plain' and 'data' in part.get('body', {}):
-                return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='ignore')
+                return body
+
+        # Fall back to text/html if no plain text
         for part in payload['parts']:
             if part['mimeType'] == 'text/html' and 'data' in part.get('body', {}):
-                return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='ignore')
+                return body
+
+    # Single part message
     elif 'data' in payload.get('body', {}):
-        return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+        body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
+        return body
+
     return ""
 
 
@@ -140,16 +173,21 @@ def fetch_gmail_messages(
                 headers = msg_data['payload']['headers']
                 body = _get_email_body(msg_data['payload'])
 
+                # Clean up the body text
+                if body:
+                    body = _clean_email_text(body)
+
                 if len(body) > Config.GMAIL_BODY_MAX_LENGTH:
                     body = body[:Config.GMAIL_BODY_MAX_LENGTH] + "... [truncated]"
 
                 message_info = {
-                    'id': msg_data['id'],
-                    'subject': next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject'),
+                    # 'id': msg_data['id'],
+                    # 'subject': next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject'),
                     'from': next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown'),
-                    'date': next((h['value'] for h in headers if h['name'].lower() == 'date'), 'Unknown'),
+                    # 'date': next((h['value'] for h in headers if h['name'].lower() == 'date'), 'Unknown'),
                     'snippet': msg_data.get('snippet', '')
                 }
+
                 if body:
                     message_info['body'] = body
                 detailed_messages.append(message_info)
