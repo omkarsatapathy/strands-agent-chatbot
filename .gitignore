@@ -5,6 +5,10 @@
 logs/
 *.log
 
+models/
+.setup_complete
+llama.cpp/
+
 # Python
 __pycache__/
 *.py[cod]

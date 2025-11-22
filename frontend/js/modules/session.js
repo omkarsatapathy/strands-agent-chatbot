@@ -36,11 +36,17 @@ export function setSessionManager(manager) {
 export async function initializeSessions() {
     console.log('[Session] Initializing sessions...');
     try {
-        await loadSessions();
+        const sessions = await sessionManager.listSessions();
+        console.log('[Session] Loaded sessions:', sessions.length);
+        renderSessions(sessions);
 
-        // Create a new session if none exists
-        if (!sessionManager.getCurrentSessionId()) {
-            console.log('[Session] No active session, creating new one...');
+        // If there are existing sessions, load the most recent one
+        if (sessions.length > 0) {
+            console.log('[Session] Loading most recent session...');
+            await loadSession(sessions[0].session_id);
+        } else {
+            // Only create a new session if no sessions exist at all
+            console.log('[Session] No existing sessions, creating new one...');
             await createNewChat();
         }
     } catch (error) {

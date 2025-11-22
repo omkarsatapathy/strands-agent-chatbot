@@ -1,7 +1,7 @@
 """Factory for creating model provider instances."""
 from typing import Optional
 from .base import BaseModelProvider
-from .llamacpp import LlamaCppProvider
+from .llamacpp import LlamaCppProvider, LlamaCppGptOssProvider, LlamaCppQwen3Provider
 from .gemini import GeminiProvider
 from .openai import OpenAIProvider
 
@@ -11,7 +11,9 @@ class ModelProviderFactory:
 
     # Registry of available providers
     _providers = {
-        "llamacpp": LlamaCppProvider,
+        "llamacpp-gpt-oss": LlamaCppGptOssProvider,
+        "llamacpp-qwen3": LlamaCppQwen3Provider,
+        "llamacpp": LlamaCppProvider,  # Backward compatibility (defaults to Qwen3)
         "gemini": GeminiProvider,
         "openai": OpenAIProvider,
     }
@@ -62,12 +64,20 @@ class ModelProviderFactory:
         """
         providers = []
         provider_display_names = {
-            "llamacpp": "LlamaCpp (Local)",
+            "llamacpp-gpt-oss": "LlamaCPP-GPT-OSS",
+            "llamacpp-qwen3": "LlamaCPP-Qwen3-8B",
+            "llamacpp": "LlamaCpp (Local)",  # Hidden, backward compat
             "gemini": "Google Gemini",
             "openai": "OpenAI GPT",
         }
 
+        # Skip the backward-compat 'llamacpp' entry in the UI
+        skip_providers = {"llamacpp"}
+
         for name, provider_class in cls._providers.items():
+            if name in skip_providers:
+                continue
+
             try:
                 provider = provider_class()
                 is_available = provider.is_available()
@@ -88,9 +98,10 @@ class ModelProviderFactory:
         Get the default provider name.
 
         Returns the first available provider in priority order:
-        1. llamacpp (local)
-        2. gemini
+        1. llamacpp-qwen3 (local)
+        2. llamacpp-gpt-oss (local)
         3. openai
+        4. gemini
 
         Returns:
             Name of the default provider
@@ -98,7 +109,7 @@ class ModelProviderFactory:
         Raises:
             RuntimeError: If no providers are available
         """
-        priority_order = ["llamacpp", "gemini", "openai"]
+        priority_order = ["llamacpp-qwen3", "llamacpp-gpt-oss", "openai", "gemini"]
 
         for provider_name in priority_order:
             try:

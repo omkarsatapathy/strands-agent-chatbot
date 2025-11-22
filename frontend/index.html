@@ -33,6 +33,8 @@
                     <span class="dot"></span>
                     <span class="dot"></span>
                     <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
                 </div>
             </div>
 
@@ -99,6 +101,8 @@
                     <span class="dot active"></span>
                     <span class="dot"></span>
                     <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
                 </div>
             </div>
 
@@ -135,6 +139,8 @@
                     <span class="dot"></span>
                     <span class="dot"></span>
                     <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
                     <span class="dot"></span>
                 </div>
             </div>
@@ -174,9 +180,149 @@
                 <div class="setup-actions">
                     <button class="setup-btn secondary" data-action="prev">Back</button>
                     <button class="setup-btn tertiary" data-action="skip" data-skip-type="gemini">Skip</button>
-                    <button class="setup-btn primary" data-action="finish">Finish Setup</button>
+                    <button class="setup-btn primary" data-action="next">Continue</button>
                 </div>
                 <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- Page 5: Local LLM (llama.cpp) Setup -->
+            <div class="setup-page" data-page="5">
+                <div class="setup-api-icon llama">
+                    <img src="/static/logo/llama.png" alt="llama.cpp" class="llama-logo">
+                </div>
+                <h2 class="setup-title">Local LLM Setup</h2>
+                <p class="setup-description">Set up llama.cpp to run AI models locally on your machine. This enables offline usage with no API costs.</p>
+
+                <div class="llama-status" id="llamaStatus">
+                    <div class="status-checking">Checking installation status...</div>
+                </div>
+
+                <div class="terminal-container" id="terminalContainer" style="display: none;">
+                    <div class="terminal-header">
+                        <span class="terminal-title">Terminal Output</span>
+                    </div>
+                    <div class="terminal-output" id="terminalOutput"></div>
+                </div>
+
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" data-action="prev">Back</button>
+                    <button class="setup-btn tertiary" data-action="skip" data-skip-type="llama">Skip</button>
+                    <button class="setup-btn primary" id="llamaInstallBtn" data-action="install-llama">Install llama.cpp</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- Page 6: Model Download -->
+            <div class="setup-page" data-page="6">
+                <div class="setup-api-icon llama">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </div>
+                <h2 class="setup-title">Select AI Model</h2>
+                <p class="setup-description">Choose a model for local AI inference. Download it first, then it will be used to start the local server.</p>
+
+                <p class="setup-note">
+                    <strong>Note:</strong> Models are large files and may take several minutes to download depending on your internet speed.
+                </p>
+
+                <!-- GPT-OSS-20B Model Card -->
+                <div class="model-card" id="modelCardGptOss" data-model="gpt-oss">
+                    <div class="model-card-header">
+                        <div class="model-card-info">
+                            <div class="model-name">GPT-OSS-20B</div>
+                            <div class="model-desc">General purpose, high quality responses</div>
+                        </div>
+                        <div class="model-card-meta">
+                            <div class="model-size">~13.8 GB</div>
+                            <button class="model-download-btn" data-action="download-model" data-model="gpt-oss">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="model-progress-container" data-model="gpt-oss" style="display: none;">
+                        <div class="model-progress-bar">
+                            <div class="model-progress-fill"></div>
+                        </div>
+                        <div class="model-progress-text">
+                            <span class="model-progress-percent">0%</span>
+                            <span class="model-progress-speed"></span>
+                        </div>
+                    </div>
+                    <div class="model-status" data-model="gpt-oss">
+                        <span class="status-text">Ready to download</span>
+                    </div>
+                </div>
+
+                <!-- Qwen3-8B Model Card -->
+                <div class="model-card" id="modelCardQwen3" data-model="qwen3">
+                    <div class="model-card-header">
+                        <div class="model-card-info">
+                            <div class="model-name">Qwen3-8B</div>
+                            <div class="model-desc">Fast, efficient multilingual model</div>
+                        </div>
+                        <div class="model-card-meta">
+                            <div class="model-size">~5.2 GB</div>
+                            <button class="model-download-btn" data-action="download-model" data-model="qwen3">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="model-progress-container" data-model="qwen3" style="display: none;">
+                        <div class="model-progress-bar">
+                            <div class="model-progress-fill"></div>
+                        </div>
+                        <div class="model-progress-text">
+                            <span class="model-progress-percent">0%</span>
+                            <span class="model-progress-speed"></span>
+                        </div>
+                    </div>
+                    <div class="model-status" data-model="qwen3">
+                        <span class="status-text">Ready to download</span>
+                    </div>
+                </div>
+
+                <div class="terminal-container" id="modelTerminalContainer" style="display: none;">
+                    <div class="terminal-header">
+                        <span class="terminal-title">Download Output</span>
+                    </div>
+                    <div class="terminal-output" id="modelTerminalOutput"></div>
+                </div>
+
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" data-action="prev">Back</button>
+                    <button class="setup-btn tertiary" data-action="skip" data-skip-type="model">Skip</button>
+                    <button class="setup-btn primary" id="finishSetupBtn" data-action="finish">Finish Setup</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
                     <span class="dot"></span>
                     <span class="dot"></span>
                     <span class="dot"></span>
