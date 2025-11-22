@@ -137,6 +137,12 @@ export function addMessage(text, sender, costData = null) {
 
     if (!chatMessages) return;
 
+    // Hide welcome placeholder when first message is added
+    const chatWelcome = document.getElementById('chatWelcome');
+    if (chatWelcome) {
+        chatWelcome.classList.add('hidden');
+    }
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}-message`;
 

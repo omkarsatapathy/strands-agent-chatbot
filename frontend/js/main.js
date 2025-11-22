@@ -1,5 +1,6 @@
 // Main Entry Point
-import { API_BASE_URL } from './config.js';
+import { API_BASE_URL, checkSetupStatus, IS_SETUP_DONE } from './config.js';
+import { initializeSetup } from './setup.js';
 import { checkServerHealth, getModelProviders } from './modules/api.js';
 import {
     initializeUIElements,
@@ -206,7 +207,7 @@ let sessionManager = null;
 // Global DOM elements
 let messageInput, sendButton, clearButton, searchButton;
 let sidebarToggle, newChatButton, uploadButton, fileInput;
-let modelProviderSelect;
+let modelProviderSelect, themeToggle;
 
 // Initialize model providers dropdown
 async function initializeModelProviders() {
@@ -282,12 +283,68 @@ export function getSelectedModelProvider() {
     return modelProviderSelect.value;
 }
 
+// Initialize theme from localStorage or system preference
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    let theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+
+    // Update meta theme-color
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', theme === 'dark' ? '#1F273D' : '#ffffff');
+    }
+}
+
+// Toggle theme
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Update meta theme-color
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', newTheme === 'dark' ? '#1F273D' : '#ffffff');
+    }
+
+    console.log('[Main] Theme changed to:', newTheme);
+}
+
+// Clear current session chat (clears messages in current session only)
+async function clearCurrentChat() {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.innerHTML = '';
+    }
+
+    // Clear conversation history in messaging module
+    const { clearConversationHistory } = await import('./modules/messaging.js');
+    clearConversationHistory();
+
+    console.log('[Main] Current chat cleared');
+}
+
 // Initialize application
 async function initializeApp() {
     console.log('=== INITIALIZING APPLICATION ===');
     console.log('API_BASE_URL:', API_BASE_URL);
 
     try {
+        // Check setup status first
+        console.log('[Main] Checking setup status...');
+        const setupComplete = await checkSetupStatus();
+
+        // Initialize setup wizard if not done
+        if (!setupComplete) {
+            console.log('[Main] Setup not complete, showing setup wizard...');
+            initializeSetup();
+        }
+
         // Initialize UI elements
         console.log('[Main] Initializing UI elements...');
         initializeUIElements();
@@ -315,6 +372,11 @@ async function initializeApp() {
         console.log('[Main] Initializing model provider selector...');
         modelProviderSelect = document.getElementById('modelProvider');
         await initializeModelProviders();
+
+        // Initialize theme toggle
+        console.log('[Main] Initializing theme toggle...');
+        themeToggle = document.getElementById('themeToggle');
+        initializeTheme();
 
         // Check server health
         console.log('[Main] Checking server health...');
@@ -365,9 +427,15 @@ function setupEventListeners() {
         }
     });
 
-    // Clear button / New chat
+    // Clear button - clears current session chat
+    clearButton = document.getElementById('clearButton');
     if (clearButton) {
-        clearButton.addEventListener('click', createNewChat);
+        clearButton.addEventListener('click', clearCurrentChat);
+    }
+
+    // Theme toggle
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
     }
 
     // Search button

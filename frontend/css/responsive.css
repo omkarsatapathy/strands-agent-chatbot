@@ -1,11 +1,11 @@
-/* Mobile optimizations */
+/* Mobile optimizations - ChatGPT inspired */
 @media only screen and (max-width: 768px) {
     .sidebar {
         position: fixed;
         left: 0;
         top: 0;
         transform: translateX(-100%);
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        box-shadow: var(--shadow-lg);
     }
 
     .sidebar.open {
@@ -24,37 +24,57 @@
         padding: 12px 16px;
     }
 
-    .mouse-icon {
-        font-size: 36px;
+    .header-left {
+        padding-left: 40px;
+    }
+
+    .model-provider-select {
+        font-size: 14px;
+        min-width: 100px;
+    }
+
+    .status-indicator {
+        display: none;
+    }
+
+    .header-logo {
+        width: 32px;
+        height: 32px;
+    }
+
+    .header-right .icon-button,
+    .header-right .theme-toggle {
+        padding: 6px;
     }
 
     .chat-messages {
-        padding: 16px 12px;
-        gap: 8px;
+        padding: 16px 0;
     }
 
     .message-content {
-        max-width: 80%;
+        max-width: 100%;
+        padding: 0 16px;
         font-size: 14px;
     }
 
     .chat-input-container {
-        padding: 12px 16px;
-        padding-bottom: max(16px, calc(16px + env(safe-area-inset-bottom)));
+        padding: 12px 16px 16px;
     }
 
     .input-wrapper {
-        padding: 6px 6px 6px 14px;
+        padding: 6px 10px;
     }
 
-    .send-button {
-        min-width: 40px;
-        min-height: 40px;
+    .send-button,
+    .attach-button,
+    .search-button {
+        min-width: 36px;
+        min-height: 36px;
     }
 
     /* Optimize tables for mobile */
     .markdown-table {
-        font-size: 11px;
+        font-size: 12px;
         display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -62,39 +82,60 @@
 
     .markdown-table th,
     .markdown-table td {
-        padding: 5px 7px;
+        padding: 8px 10px;
         white-space: nowrap;
+    }
+
+    .document-area {
+        padding: 12px 16px;
     }
 }
 
 /* Very small screens */
 @media only screen and (max-width: 480px) {
-    .status-indicator {
-        font-size: 12px;
+    .header-left {
+        padding-left: 36px;
     }
 
-    .mouse-icon {
-        font-size: 32px;
+    .model-provider-select {
+        font-size: 13px;
+        padding: 6px 24px 6px 8px;
+    }
+
+    .header-logo {
+        width: 28px;
+        height: 28px;
+    }
+
+    .chat-welcome-logo {
+        width: 60px;
+        height: 60px;
+    }
+
+    .chat-welcome-title {
+        font-size: 18px;
     }
 
     .message-content {
-        max-width: 85%;
-        font-size: 13.5px;
+        font-size: 14px;
+        padding: 0 12px;
     }
 
     .input-wrapper {
-        gap: 8px;
+        padding: 4px 8px;
     }
 
-    .send-button {
-        min-width: 38px;
-        min-height: 38px;
-        padding: 9px;
+    .send-button,
+    .attach-button,
+    .search-button {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px;
     }
 
-    .icon-button-left {
-        min-width: 34px;
-        min-height: 34px;
+    #messageInput {
+        font-size: 14px;
+        padding: 6px 8px;
     }
 }
 
@@ -104,15 +145,22 @@
         padding: 8px 16px;
     }
 
-    .mouse-icon {
-        font-size: 28px;
-    }
-
     .chat-input-container {
-        padding: 8px 16px 12px 16px;
+        padding: 8px 16px;
     }
 
     .input-wrapper {
-        padding: 5px 5px 5px 12px;
+        padding: 4px 8px;
+    }
+}
+
+/* Large screens */
+@media only screen and (min-width: 1200px) {
+    .message-content {
+        max-width: 800px;
+    }
+
+    .input-wrapper {
+        max-width: 800px;
     }
 }

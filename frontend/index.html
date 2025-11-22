@@ -1,26 +1,231 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0b141a">
+    <meta name="theme-color" content="#ffffff">
     <title>AI Chatbot</title>
     <!-- Modular CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/setup.css">
 </head>
 <body>
+    <!-- Setup Wizard Overlay -->
+    <div class="setup-overlay" id="setupOverlay" style="display: none;">
+        <div class="setup-backdrop"></div>
+        <div class="setup-wizard" id="setupWizard">
+            <!-- Page 1: Welcome -->
+            <div class="setup-page active" data-page="1">
+                <div class="setup-logo">
+                    <div class="logo-icon">
+                        <img src="/static/logo/logo.png" alt="Logo">
+                    </div>
+                </div>
+                <h1 class="setup-title">Welcome to AI Chatbot</h1>
+                <p class="setup-description">Your intelligent assistant powered by multiple AI models. Let's get you set up in just a few steps.</p>
+                <div class="setup-actions">
+                    <button class="setup-btn primary" data-action="next">Get Started</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- Page 2: Features -->
+            <div class="setup-page" data-page="2">
+                <div class="setup-features">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Multi-Model Chat</h3>
+                            <p>Chat with OpenAI GPT, Google Gemini, or local LLMs</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Document Analysis</h3>
+                            <p>Upload PDFs, docs, and text files for AI-powered analysis</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                            </svg>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Web Search</h3>
+                            <p>Search the web and get AI-summarized results</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Voice Support</h3>
+                            <p>Text-to-speech responses for a natural experience</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" data-action="prev">Back</button>
+                    <button class="setup-btn primary" data-action="next">Continue</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- Page 3: OpenAI API Key -->
+            <div class="setup-page" data-page="3">
+                <div class="setup-api-icon openai">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+                    </svg>
+                </div>
+                <h2 class="setup-title">OpenAI API Key</h2>
+                <p class="setup-description">Enter your OpenAI API key to enable GPT models. Get one from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a></p>
+                <div class="setup-input-group">
+                    <div class="api-input-wrapper">
+                        <input type="password" id="openaiApiKey" class="api-input" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+                        <button class="toggle-visibility" type="button" title="Show/Hide">
+                            <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="eye-off-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" data-action="prev">Back</button>
+                    <button class="setup-btn tertiary" data-action="skip" data-skip-type="openai">Skip</button>
+                    <button class="setup-btn primary" data-action="next">Continue</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- Page 4: Google Gemini API Key -->
+            <div class="setup-page" data-page="4">
+                <div class="setup-api-icon gemini">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="url(#gemini-gradient)"/>
+                        <defs>
+                            <linearGradient id="gemini-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4285F4"/>
+                                <stop offset="25%" style="stop-color:#9B72CB"/>
+                                <stop offset="50%" style="stop-color:#D96570"/>
+                                <stop offset="100%" style="stop-color:#F9AB00"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h2 class="setup-title">Google Gemini API Key</h2>
+                <p class="setup-description">Enter your Google Gemini API key. Get one from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
+                <div class="setup-input-group">
+                    <div class="api-input-wrapper">
+                        <input type="password" id="geminiApiKey" class="api-input" placeholder="AIzaxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+                        <button class="toggle-visibility" type="button" title="Show/Hide">
+                            <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="eye-off-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" data-action="prev">Back</button>
+                    <button class="setup-btn tertiary" data-action="skip" data-skip-type="gemini">Skip</button>
+                    <button class="setup-btn primary" data-action="finish">Finish Setup</button>
+                </div>
+                <div class="setup-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot active"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Animation Overlay -->
+    <div class="welcome-animation" id="welcomeAnimation" style="display: none;">
+        <div class="welcome-content">
+            <div class="welcome-logo">
+                <img src="/static/logo/logo.png" alt="Logo">
+            </div>
+            <h1 class="welcome-title">Welcome!</h1>
+            <p class="welcome-subtitle">Your AI assistant is ready</p>
+        </div>
+    </div>
+
+    <!-- Skip Warning Modal -->
+    <div class="skip-warning-modal" id="skipWarningModal" style="display: none;">
+        <div class="skip-warning-backdrop"></div>
+        <div class="skip-warning-content">
+            <div class="warning-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </div>
+            <h3>Skip API Configuration?</h3>
+            <p id="skipWarningText">Without this API key, this model provider will not be available.</p>
+            <div class="warning-actions">
+                <button class="setup-btn secondary" id="cancelSkip">Go Back</button>
+                <button class="setup-btn tertiary" id="confirmSkip">Skip Anyway</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Sidebar for chat history -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Chat History</h2>
                 <button id="newChatButton" class="new-chat-button" title="New Chat">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"></path>
                     </svg>
+                    <span>New chat</span>
                 </button>
             </div>
             <div class="session-list" id="sessionList">
@@ -38,22 +243,46 @@
         </button>
 
         <div class="chat-container">
-            <!-- Header with mouse icon and clear chat -->
+            <!-- Header with model selector and actions -->
             <div class="chat-header">
                 <div class="header-content">
-                    <div class="status-indicator" id="status">
-                        <span class="status-dot"></span>
-                        <span class="status-text">Ready</span>
+                    <div class="header-left">
+                        <div class="model-selector-wrapper">
+                            <select id="modelProvider" class="model-provider-select" title="Select Model Provider">
+                                <option value="">Loading...</option>
+                            </select>
+                            <svg class="dropdown-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M6 9l6 6 6-6"></path>
+                            </svg>
+                        </div>
                     </div>
-                    <div class="mouse-icon-container" id="mouseIcon">
-                        <div class="mouse-icon">🐭</div>
+                    <div class="header-center">
+                        <img src="/static/logo/logo.png" alt="Logo" class="header-logo">
                     </div>
-                    <div class="header-actions">
-                        <select id="modelProvider" class="model-provider-select" title="Select Model Provider">
-                            <option value="">Loading...</option>
-                        </select>
-                        <button id="clearButton" class="icon-button" title="Clear Chat">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <div class="header-right">
+                        <div class="status-indicator" id="status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Ready</span>
+                        </div>
+                        <!-- Theme Toggle -->
+                        <button id="themeToggle" class="theme-toggle" title="Toggle theme">
+                            <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                            <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                        </button>
+                        <button id="clearButton" class="icon-button" title="Clear current chat">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"></path>
                             </svg>
                         </button>
@@ -63,6 +292,11 @@
 
             <!-- Chat messages area -->
             <div class="chat-messages" id="chatMessages">
+                <!-- Welcome placeholder - shown when chat is empty -->
+                <div class="chat-welcome" id="chatWelcome">
+                    <img src="/static/logo/logo.png" alt="Logo" class="chat-welcome-logo">
+                    <h2 class="chat-welcome-title">How can I help you today?</h2>
+                </div>
             </div>
 
             <!-- Input area -->
@@ -74,28 +308,28 @@
 
                 <div class="input-wrapper">
                     <input type="file" id="fileInput" accept=".pdf,.txt,.docx,.doc" style="display: none;" />
-                    <button id="uploadButton" class="icon-button-left" title="Upload Document">
+                    <button id="uploadButton" class="attach-button" title="Attach files">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
                     </button>
-                    <button id="searchButton" class="icon-button-left" title="Web Search">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <textarea
+                        id="messageInput"
+                        placeholder="Message AI Chatbot"
+                        rows="1"
+                    ></textarea>
+                    <button id="searchButton" class="search-button" title="Web Search">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="2" y1="12" x2="22" y2="12"></line>
                             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                         </svg>
                     </button>
-                    <textarea
-                        id="messageInput"
-                        placeholder="Type a message"
-                        rows="1"
-                    ></textarea>
-                    <button id="sendButton" class="send-button">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    <button id="sendButton" class="send-button" title="Send message">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                         </svg>
                     </button>
                 </div>

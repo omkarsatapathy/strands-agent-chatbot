@@ -1,3 +1,67 @@
+/* CSS Variables for Theming */
+:root {
+    /* Light Theme (Default) */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f7f7f8;
+    --bg-tertiary: #ececf1;
+    --bg-sidebar: #f9f9f9;
+    --bg-hover: #f0f0f0;
+    --bg-active: #ebebeb;
+    --bg-input: #ffffff;
+    --bg-message-user: #f7f7f8;
+    --bg-message-bot: #ffffff;
+
+    --text-primary: #0d0d0d;
+    --text-secondary: #6e6e80;
+    --text-tertiary: #8e8ea0;
+    --text-placeholder: #8e8ea0;
+
+    --border-color: #e5e5e5;
+    --border-light: #ececf1;
+
+    --accent-color: #4169E1;
+    --accent-hover: #3457c9;
+    --accent-light: rgba(65, 105, 225, 0.1);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --bg-primary: #1F273D;
+    --bg-secondary: #171d2d;
+    --bg-tertiary: #252d44;
+    --bg-sidebar: #171d2d;
+    --bg-hover: #2a3350;
+    --bg-active: #323b55;
+    --bg-input: #252d44;
+    --bg-message-user: #252d44;
+    --bg-message-bot: #1F273D;
+
+    --text-primary: #ececf1;
+    --text-secondary: #b4b4c0;
+    --text-tertiary: #8e8ea0;
+    --text-placeholder: #6e6e80;
+
+    --border-color: #3a4359;
+    --border-light: #2a3350;
+
+    --accent-color: #4169E1;
+    --accent-hover: #5a7fe8;
+    --accent-light: rgba(65, 105, 225, 0.15);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
 /* Global resets and base styles */
 * {
     margin: 0;
@@ -7,9 +71,9 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    /* WhatsApp-inspired dark background with subtle pattern */
-    background: #0b141a url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="%23111b21" width="200" height="200"/><g fill-opacity="0.04"><circle fill="%23ffffff" cx="20" cy="20" r="2"/><circle fill="%23ffffff" cx="80" cy="50" r="2"/><circle fill="%23ffffff" cx="140" cy="30" r="2"/><circle fill="%23ffffff" cx="50" cy="100" r="2"/><circle fill="%23ffffff" cx="110" cy="120" r="2"/><circle fill="%23ffffff" cx="170" cy="90" r="2"/><circle fill="%23ffffff" cx="30" cy="160" r="2"/><circle fill="%23ffffff" cx="90" cy="180" r="2"/><circle fill="%23ffffff" cx="150" cy="150" r="2"/><path d="M10,40 Q30,50 50,40" stroke="%23ffffff" stroke-width="0.5" fill="none"/><path d="M100,80 Q120,90 140,80" stroke="%23ffffff" stroke-width="0.5" fill="none"/></g></svg>');
+    font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     margin: 0;
     padding: 0;
     height: 100vh;
@@ -17,6 +81,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -27,36 +92,26 @@ body {
 }
 
 /* Scrollbar styles */
-.session-list::-webkit-scrollbar {
-    width: 6px;
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.session-list::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.session-list::-webkit-scrollbar-thumb {
-    background: rgba(134, 150, 160, 0.3);
-    border-radius: 3px;
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
 }
 
-.session-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(134, 150, 160, 0.5);
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
 }
 
-.chat-messages::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-    background: rgba(134, 150, 160, 0.3);
-    border-radius: 3px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover {
-    background: rgba(134, 150, 160, 0.5);
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
 }

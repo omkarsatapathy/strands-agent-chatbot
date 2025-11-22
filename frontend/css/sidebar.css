@@ -1,56 +1,48 @@
-/* Sidebar styles */
+/* Sidebar styles - ChatGPT inspired */
 .sidebar {
-    width: 280px;
+    width: 260px;
     height: 100vh;
-    background: rgba(31, 44, 52, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, background-color 0.3s ease;
     z-index: 100;
 }
 
 .sidebar-header {
-    padding: 20px;
-    background: rgba(42, 57, 66, 0.6);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.sidebar-header h2 {
-    color: #e9edef;
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-light);
 }
 
 .new-chat-button {
-    background: #3b82f6;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
+    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    width: 36px;
-    height: 36px;
+    gap: 12px;
+    padding: 12px 14px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
 .new-chat-button:hover {
-    background: #60a5fa;
-    transform: scale(1.05);
+    background: var(--bg-hover);
 }
 
 .new-chat-button:active {
-    transform: scale(0.95);
+    transform: scale(0.98);
+}
+
+.new-chat-button svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
 }
 
 .session-list {
@@ -60,89 +52,142 @@
 }
 
 .session-item {
-    padding: 12px 16px;
-    margin-bottom: 4px;
-    background: rgba(42, 57, 66, 0.4);
-    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 2px;
+    background: transparent;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 0.2s ease;
-    border-left: 3px solid transparent;
+    transition: all 0.15s ease;
     position: relative;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .session-item:hover {
-    background: rgba(42, 57, 66, 0.7);
-    border-left-color: #3b82f6;
-}
-
-.session-item.active {
-    background: rgba(59, 130, 246, 0.2);
-    border-left-color: #3b82f6;
-}
-
-.session-title {
-    color: #e9edef;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-}
-
-.session-delete {
-    background: transparent;
-    border: none;
-    color: #8696a0;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: all 0.2s ease;
+    background: var(--bg-hover);
 }
 
 .session-item:hover .session-delete {
     opacity: 1;
 }
 
-.session-delete:hover {
-    background: rgba(255, 77, 77, 0.2);
-    color: #ff6b6b;
+.session-item.active {
+    background: var(--bg-active);
+}
+
+.session-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.session-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .session-date {
-    color: #8696a0;
-    font-size: 11px;
+    color: var(--text-tertiary);
+    font-size: 12px;
     margin-top: 2px;
+}
+
+.session-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.session-delete:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* Delete confirmation inline */
+.session-item.deleting {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.delete-confirm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.delete-confirm-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.delete-confirm-btn {
+    padding: 4px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.delete-confirm-btn.confirm {
+    background: #ef4444;
+    color: white;
+}
+
+.delete-confirm-btn.confirm:hover {
+    background: #dc2626;
+}
+
+.delete-confirm-btn.cancel {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.delete-confirm-btn.cancel:hover {
+    background: var(--bg-hover);
 }
 
 /* Sidebar toggle button */
 .sidebar-toggle {
     position: fixed;
-    top: 16px;
-    left: 16px;
+    top: 12px;
+    left: 12px;
     z-index: 101;
-    background: rgba(31, 44, 52, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #e9edef;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
     cursor: pointer;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 6px;
+    border-radius: var(--radius-sm);
     display: none;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.15s ease;
+}
+
+.sidebar-toggle svg {
+    width: 20px;
+    height: 20px;
 }
 
 .sidebar-toggle:hover {
-    background: rgba(42, 57, 66, 0.9);
+    background: var(--bg-hover);
 }
 
 .sidebar-toggle:active {

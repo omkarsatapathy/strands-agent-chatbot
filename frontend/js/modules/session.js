@@ -68,20 +68,21 @@ function renderSessions(sessions) {
     sessionList.innerHTML = '';
 
     if (sessions.length === 0) {
-        sessionList.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0; font-size: 14px;">No chat history yet</div>';
+        sessionList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-tertiary); font-size: 14px;">No chat history yet</div>';
         return;
     }
 
     sessions.forEach(session => {
         const sessionItem = document.createElement('div');
         sessionItem.className = 'session-item';
+        sessionItem.dataset.sessionId = session.session_id;
         if (session.session_id === sessionManager.getCurrentSessionId()) {
             sessionItem.classList.add('active');
         }
 
         sessionItem.innerHTML = `
-            <div style="flex: 1; min-width: 0;">
-                <div class="session-title">${session.title}</div>
+            <div class="session-info">
+                <div class="session-title">${escapeHtml(session.title)}</div>
                 <div class="session-date">${sessionManager.formatDate(session.updated_at)}</div>
             </div>
             <button class="session-delete" title="Delete chat">
@@ -93,22 +94,96 @@ function renderSessions(sessions) {
 
         // Click to load session
         sessionItem.addEventListener('click', async (e) => {
-            if (!e.target.closest('.session-delete')) {
+            if (!e.target.closest('.session-delete') && !e.target.closest('.delete-confirm')) {
                 await loadSession(session.session_id);
             }
         });
 
-        // Delete button
+        // Delete button - show inline confirmation
         const deleteBtn = sessionItem.querySelector('.session-delete');
-        deleteBtn.addEventListener('click', async (e) => {
+        deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm('Delete this chat?')) {
-                await deleteSessionAndUpdate(session.session_id);
-            }
+            showDeleteConfirmation(sessionItem, session.session_id);
         });
 
         sessionList.appendChild(sessionItem);
     });
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Show inline delete confirmation
+function showDeleteConfirmation(sessionItem, sessionId) {
+    // Remove any existing confirmations
+    const existingConfirm = document.querySelector('.session-item.deleting');
+    if (existingConfirm && existingConfirm !== sessionItem) {
+        resetSessionItem(existingConfirm);
+    }
+
+    // If already showing confirmation, reset it
+    if (sessionItem.classList.contains('deleting')) {
+        resetSessionItem(sessionItem);
+        return;
+    }
+
+    // Store original content
+    const originalContent = sessionItem.innerHTML;
+    sessionItem.dataset.originalContent = originalContent;
+    sessionItem.classList.add('deleting');
+
+    // Show confirmation UI
+    sessionItem.innerHTML = `
+        <div class="delete-confirm">
+            <span class="delete-confirm-text">Delete?</span>
+            <button class="delete-confirm-btn confirm">Delete</button>
+            <button class="delete-confirm-btn cancel">Cancel</button>
+        </div>
+    `;
+
+    // Handle confirm click
+    const confirmBtn = sessionItem.querySelector('.delete-confirm-btn.confirm');
+    confirmBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await deleteSessionAndUpdate(sessionId);
+    });
+
+    // Handle cancel click
+    const cancelBtn = sessionItem.querySelector('.delete-confirm-btn.cancel');
+    cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetSessionItem(sessionItem);
+    });
+
+    // Auto-cancel after 5 seconds
+    setTimeout(() => {
+        if (sessionItem.classList.contains('deleting')) {
+            resetSessionItem(sessionItem);
+        }
+    }, 5000);
+}
+
+// Reset session item to original state
+function resetSessionItem(sessionItem) {
+    if (sessionItem.dataset.originalContent) {
+        sessionItem.innerHTML = sessionItem.dataset.originalContent;
+        sessionItem.classList.remove('deleting');
+        delete sessionItem.dataset.originalContent;
+
+        // Re-attach event listeners
+        const sessionId = sessionItem.dataset.sessionId;
+        const deleteBtn = sessionItem.querySelector('.session-delete');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showDeleteConfirmation(sessionItem, sessionId);
+            });
+        }
+    }
 }
 
 // Load a specific session
@@ -133,6 +208,16 @@ export async function loadSession(sessionId) {
                 addMessage(msg.content, msg.role === 'user' ? 'user' : 'bot');
                 conversationHistory.push({ role: msg.role, content: msg.content });
             });
+        } else {
+            // Show welcome placeholder for empty sessions
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'chat-welcome';
+            welcomeDiv.id = 'chatWelcome';
+            welcomeDiv.innerHTML = `
+                <img src="/static/logo/logo.png" alt="Logo" class="chat-welcome-logo">
+                <h2 class="chat-welcome-title">How can I help you today?</h2>
+            `;
+            chatMessages.appendChild(welcomeDiv);
         }
         setConversationHistory(conversationHistory);
 
@@ -153,9 +238,30 @@ export async function loadSession(sessionId) {
     }
 }
 
+// Check if current session is blank (no messages)
+async function isCurrentSessionBlank() {
+    const currentSessionId = sessionManager.getCurrentSessionId();
+    if (!currentSessionId) return false;
+
+    try {
+        const sessionData = await sessionManager.getSession(currentSessionId, true);
+        return !sessionData.messages || sessionData.messages.length === 0;
+    } catch (error) {
+        return false;
+    }
+}
+
 // Create a new chat session
 export async function createNewChat() {
     console.log('[Session] Creating new chat...');
+
+    // Check if current session is already blank - don't create another
+    const isBlank = await isCurrentSessionBlank();
+    if (isBlank) {
+        console.log('[Session] Current session is already blank, not creating new one');
+        return;
+    }
+
     try {
         // Create new session
         const session = await sessionManager.createSession('New Chat');
@@ -163,6 +269,15 @@ export async function createNewChat() {
         // Clear current chat
         if (chatMessages) {
             chatMessages.innerHTML = '';
+            // Re-add the welcome placeholder
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'chat-welcome';
+            welcomeDiv.id = 'chatWelcome';
+            welcomeDiv.innerHTML = `
+                <img src="/static/logo/logo.png" alt="Logo" class="chat-welcome-logo">
+                <h2 class="chat-welcome-title">How can I help you today?</h2>
+            `;
+            chatMessages.appendChild(welcomeDiv);
         }
         clearConversationHistory();
 
