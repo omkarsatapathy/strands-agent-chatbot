@@ -28,7 +28,8 @@ async def chat_stream(request: ChatRequest):
             message=request.message,
             conversation_history=request.conversation_history,
             session_id=request.session_id,
-            model_provider=request.model_provider
+            model_provider=request.model_provider,
+            response_style=request.response_style
         ),
         media_type="text/event-stream",
         headers={

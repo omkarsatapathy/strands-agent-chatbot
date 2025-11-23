@@ -4,7 +4,7 @@ import { showError } from './ui.js';
 import { addMessage, clearConversationHistory, setConversationHistory } from './messaging.js';
 
 // DOM Elements
-let sidebar, sessionList, sidebarToggle, newChatButton;
+let sidebar, sessionList, sidebarToggle, newChatButton, sidebarOverlay;
 
 // Session manager instance
 let sessionManager = null;
@@ -19,9 +19,15 @@ export function initializeSessionElements() {
     sidebarToggle = document.getElementById('sidebarToggle');
     newChatButton = document.getElementById('newChatButton');
     chatMessages = document.getElementById('chatMessages');
+    sidebarOverlay = document.getElementById('sidebarOverlay');
 
     if (!sidebar || !sessionList) {
         throw new Error('Required session elements not found');
+    }
+
+    // Add overlay click listener to close sidebar
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar);
     }
 
     return { sidebar, sessionList, sidebarToggle, newChatButton };
@@ -324,16 +330,30 @@ export async function deleteSessionAndUpdate(sessionId) {
     }
 }
 
-// Toggle sidebar (mobile)
+// Toggle sidebar (mobile/tablet)
 export function toggleSidebar() {
     if (sidebar) {
-        sidebar.classList.toggle('open');
+        const isOpen = sidebar.classList.toggle('open');
+        // Also toggle overlay
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.toggle('show', isOpen);
+        }
     }
 }
 
-// Close sidebar on mobile
-export function closeSidebarOnMobile() {
-    if (window.innerWidth <= 768 && sidebar) {
+// Close sidebar
+export function closeSidebar() {
+    if (sidebar) {
         sidebar.classList.remove('open');
+    }
+    if (sidebarOverlay) {
+        sidebarOverlay.classList.remove('show');
+    }
+}
+
+// Close sidebar on mobile/tablet (screens <= 1024px)
+export function closeSidebarOnMobile() {
+    if (window.innerWidth <= 1024 && sidebar) {
+        closeSidebar();
     }
 }

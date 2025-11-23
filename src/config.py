@@ -52,6 +52,16 @@ class Config:
     # Agent Limits
     MAX_TOOL_CALLS: int = int(os.getenv("MAX_TOOL_CALLS", "20"))
 
+    # Response Style Settings
+    DEFAULT_RESPONSE_STYLE: str = "Normal"
+    RESPONSE_STYLES: dict = {
+        "Normal": "",
+        "Formal": "Respond in a formal, professional tone. Use proper grammar, avoid contractions, and maintain a business-appropriate style. Avoid casual language and slang.",
+        "Explanatory": "Provide detailed, thorough explanations with examples and context. Break down complex concepts step-by-step. Include relevant background information.",
+        "Concise": "Be extremely brief and direct. Use short sentences. Minimize unnecessary words. Get straight to the point. No elaboration unless essential.",
+        "Learning": "Explain concepts as if teaching a beginner. Use simple language, analogies, and examples. Build understanding progressively. Check for clarity."
+    }
+
     # Logging Configuration
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_TO_FILE: bool = os.getenv("LOG_TO_FILE", "True").lower() in ("true", "1", "yes")

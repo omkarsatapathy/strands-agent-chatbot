@@ -84,3 +84,19 @@ export async function getModelProviders() {
         return { providers: [], default: null };
     }
 }
+
+// Get available response styles
+export async function getResponseStyles() {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/api/models/styles`, {}, 5000);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error('Failed to get response styles');
+            return { styles: ['Normal'], default: 'Normal' };
+        }
+    } catch (error) {
+        console.error('Error getting response styles:', error);
+        return { styles: ['Normal'], default: 'Normal' };
+    }
+}

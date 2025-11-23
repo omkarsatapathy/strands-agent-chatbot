@@ -13,12 +13,23 @@ import {
 
 // DOM Elements
 let chatMessages, messageInput, sendButton, searchButton;
+let cameraButton, imageUploadButton, imageInput, imagePreviewArea, imagePreview, removeImageBtn;
+
+// Camera modal elements
+let cameraModal, cameraVideo, cameraCanvas, capturedImage, cameraError, cameraErrorText;
+let closeCameraModal, switchCameraBtn, captureBtn, retakeBtn, usePhotoBtn;
 
 // Conversation history
 let conversationHistory = [];
 
 // State management
 let requestInProgress = false;
+let pendingImageBase64 = null;  // Store base64 image data for sending
+let pendingImageDataUrl = null; // Store data URL for preview
+
+// Camera state
+let currentStream = null;
+let facingMode = 'environment'; // 'user' for front camera, 'environment' for back
 
 // Session manager reference (will be set by main.js)
 let sessionManager = null;
@@ -30,11 +41,342 @@ export function initializeMessagingElements() {
     sendButton = document.getElementById('sendButton');
     searchButton = document.getElementById('searchButton');
 
+    // Image/camera elements
+    cameraButton = document.getElementById('cameraButton');
+    imageUploadButton = document.getElementById('imageUploadButton');
+    imageInput = document.getElementById('imageInput');
+    imagePreviewArea = document.getElementById('imagePreviewArea');
+    imagePreview = document.getElementById('imagePreview');
+    removeImageBtn = document.getElementById('removeImageBtn');
+
+    // Camera modal elements
+    cameraModal = document.getElementById('cameraModal');
+    cameraVideo = document.getElementById('cameraVideo');
+    cameraCanvas = document.getElementById('cameraCanvas');
+    capturedImage = document.getElementById('capturedImage');
+    cameraError = document.getElementById('cameraError');
+    cameraErrorText = document.getElementById('cameraErrorText');
+    closeCameraModal = document.getElementById('closeCameraModal');
+    switchCameraBtn = document.getElementById('switchCameraBtn');
+    captureBtn = document.getElementById('captureBtn');
+    retakeBtn = document.getElementById('retakeBtn');
+    usePhotoBtn = document.getElementById('usePhotoBtn');
+
     if (!chatMessages || !messageInput || !sendButton) {
         throw new Error('Required messaging elements not found');
     }
 
-    return { chatMessages, messageInput, sendButton, searchButton };
+    // Setup image handling
+    setupImageHandling();
+    setupCameraModal();
+
+    return { chatMessages, messageInput, sendButton, searchButton, cameraButton, imageInput };
+}
+
+// Setup image handling events
+function setupImageHandling() {
+    // Image upload button - opens file picker for images
+    if (imageUploadButton && imageInput) {
+        imageUploadButton.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', handleImageSelect);
+    }
+
+    // Camera button - opens camera modal
+    if (cameraButton) {
+        cameraButton.addEventListener('click', openCameraModal);
+    }
+
+    if (removeImageBtn) {
+        removeImageBtn.addEventListener('click', clearPendingImage);
+    }
+}
+
+// Setup camera modal events
+function setupCameraModal() {
+    if (!cameraModal) return;
+
+    // Close modal
+    if (closeCameraModal) {
+        closeCameraModal.addEventListener('click', closeCameraModalHandler);
+    }
+
+    // Close on backdrop click
+    const backdrop = cameraModal.querySelector('.camera-modal-backdrop');
+    if (backdrop) {
+        backdrop.addEventListener('click', closeCameraModalHandler);
+    }
+
+    // Switch camera
+    if (switchCameraBtn) {
+        switchCameraBtn.addEventListener('click', switchCamera);
+    }
+
+    // Capture photo
+    if (captureBtn) {
+        captureBtn.addEventListener('click', capturePhoto);
+    }
+
+    // Retake photo
+    if (retakeBtn) {
+        retakeBtn.addEventListener('click', retakePhoto);
+    }
+
+    // Use photo
+    if (usePhotoBtn) {
+        usePhotoBtn.addEventListener('click', usePhoto);
+    }
+}
+
+// Open camera modal
+async function openCameraModal() {
+    if (!cameraModal) return;
+
+    cameraModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Reset state
+    showCaptureMode();
+
+    // Start camera
+    await startCamera();
+}
+
+// Close camera modal
+function closeCameraModalHandler() {
+    if (!cameraModal) return;
+
+    stopCamera();
+    cameraModal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Start camera stream
+async function startCamera() {
+    try {
+        // Hide error, show video
+        if (cameraError) cameraError.style.display = 'none';
+        if (cameraVideo) cameraVideo.style.display = 'block';
+
+        const constraints = {
+            video: {
+                facingMode: facingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 960 }
+            },
+            audio: false
+        };
+
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        if (cameraVideo) {
+            cameraVideo.srcObject = currentStream;
+            await cameraVideo.play();
+        }
+
+        console.log('[Camera] Started successfully');
+
+    } catch (error) {
+        console.error('[Camera] Error starting camera:', error);
+        showCameraError(getCameraErrorMessage(error));
+    }
+}
+
+// Stop camera stream
+function stopCamera() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+
+    if (cameraVideo) {
+        cameraVideo.srcObject = null;
+    }
+}
+
+// Switch between front and back camera
+async function switchCamera() {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    stopCamera();
+    await startCamera();
+}
+
+// Capture photo from video
+function capturePhoto() {
+    if (!cameraVideo || !cameraCanvas || !capturedImage) return;
+
+    // Set canvas size to video size
+    cameraCanvas.width = cameraVideo.videoWidth;
+    cameraCanvas.height = cameraVideo.videoHeight;
+
+    // Draw video frame to canvas
+    const ctx = cameraCanvas.getContext('2d');
+
+    // Mirror if using front camera
+    if (facingMode === 'user') {
+        ctx.translate(cameraCanvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(cameraVideo, 0, 0);
+
+    // Get image data URL
+    const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.9);
+
+    // Show captured image
+    capturedImage.src = dataUrl;
+    showReviewMode();
+
+    console.log('[Camera] Photo captured');
+}
+
+// Retake photo - go back to capture mode
+function retakePhoto() {
+    showCaptureMode();
+}
+
+// Use the captured photo
+function usePhoto() {
+    if (!capturedImage || !capturedImage.src) return;
+
+    const dataUrl = capturedImage.src;
+
+    // Extract base64 data
+    pendingImageBase64 = dataUrl.split(',')[1];
+    pendingImageDataUrl = dataUrl;
+
+    // Show preview in chat input area
+    if (imagePreview && imagePreviewArea) {
+        imagePreview.src = dataUrl;
+        imagePreviewArea.style.display = 'block';
+    }
+
+    // Update button states
+    if (cameraButton) cameraButton.classList.add('has-image');
+    if (imageUploadButton) imageUploadButton.classList.add('has-image');
+
+    // Close modal
+    closeCameraModalHandler();
+
+    console.log('[Camera] Photo ready to send');
+}
+
+// Show capture mode (video visible, capture button)
+function showCaptureMode() {
+    if (cameraVideo) cameraVideo.style.display = 'block';
+    if (capturedImage) capturedImage.style.display = 'none';
+    if (captureBtn) captureBtn.style.display = 'flex';
+    if (switchCameraBtn) switchCameraBtn.style.display = 'flex';
+    if (retakeBtn) retakeBtn.style.display = 'none';
+    if (usePhotoBtn) usePhotoBtn.style.display = 'none';
+}
+
+// Show review mode (captured image visible, retake/use buttons)
+function showReviewMode() {
+    if (cameraVideo) cameraVideo.style.display = 'none';
+    if (capturedImage) capturedImage.style.display = 'block';
+    if (captureBtn) captureBtn.style.display = 'none';
+    if (switchCameraBtn) switchCameraBtn.style.display = 'none';
+    if (retakeBtn) retakeBtn.style.display = 'flex';
+    if (usePhotoBtn) usePhotoBtn.style.display = 'block';
+}
+
+// Show camera error
+function showCameraError(message) {
+    if (cameraError) cameraError.style.display = 'flex';
+    if (cameraErrorText) cameraErrorText.textContent = message;
+    if (cameraVideo) cameraVideo.style.display = 'none';
+    if (captureBtn) captureBtn.disabled = true;
+}
+
+// Get user-friendly camera error message
+function getCameraErrorMessage(error) {
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        return 'Camera access denied. Please allow camera permissions in your browser settings.';
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        return 'No camera found on this device.';
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        return 'Camera is in use by another application.';
+    } else if (error.name === 'OverconstrainedError') {
+        return 'Camera does not support the requested settings.';
+    } else {
+        return 'Unable to access camera. Please check your device settings.';
+    }
+}
+
+// Handle image selection
+function handleImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        showError('Please select an image file');
+        return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showError('Image size must be less than 10MB');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        // Extract base64 data (remove data:image/...;base64, prefix)
+        pendingImageBase64 = dataUrl.split(',')[1];
+        pendingImageDataUrl = dataUrl;
+
+        // Show preview
+        if (imagePreview && imagePreviewArea) {
+            imagePreview.src = dataUrl;
+            imagePreviewArea.style.display = 'block';
+        }
+
+        // Update button states
+        if (cameraButton) cameraButton.classList.add('has-image');
+        if (imageUploadButton) imageUploadButton.classList.add('has-image');
+
+        console.log('[Messaging] Image loaded, size:', pendingImageBase64.length);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    event.target.value = '';
+}
+
+// Clear pending image
+export function clearPendingImage() {
+    pendingImageBase64 = null;
+    pendingImageDataUrl = null;
+
+    if (imagePreviewArea) {
+        imagePreviewArea.style.display = 'none';
+    }
+    if (imagePreview) {
+        imagePreview.src = '';
+    }
+    if (cameraButton) {
+        cameraButton.classList.remove('has-image');
+    }
+    if (imageUploadButton) {
+        imageUploadButton.classList.remove('has-image');
+    }
+
+    console.log('[Messaging] Pending image cleared');
+}
+
+// Check if there's a pending image
+export function hasPendingImage() {
+    return pendingImageBase64 !== null;
+}
+
+// Get pending image base64
+export function getPendingImageBase64() {
+    return pendingImageBase64;
 }
 
 // Set session manager reference
@@ -543,10 +885,141 @@ async function handleStreamEvent(eventType, eventData, statusId) {
     }
 }
 
+// Handle image message - send to Gemini for analysis
+async function handleImageMessage(userMessage) {
+    const imageBase64 = pendingImageBase64;
+    const imageDataUrl = pendingImageDataUrl;
+    const displayMessage = userMessage || 'Describe this image';
+
+    // Clear the pending image first
+    clearPendingImage();
+
+    // Clear input
+    messageInput.value = '';
+    if (messageInput.style) {
+        messageInput.style.height = 'auto';
+    }
+
+    // Add user message with image to chat
+    addMessageWithImage(displayMessage, 'user', imageDataUrl);
+    conversationHistory.push({ role: 'user', content: `[Image attached] ${displayMessage}` });
+
+    // Disable send button
+    sendButton.disabled = true;
+    updateStatus('Analyzing image...', true);
+
+    // Show status indicator
+    const statusId = showStatusIndicator('📷 Analyzing image with Gemini...');
+
+    try {
+        console.log('[Messaging] Sending image for analysis...');
+
+        const response = await fetch(`${API_BASE_URL}/api/image/analyze`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image_base64: imageBase64,
+                message: userMessage || 'Describe what you see in this image in detail.'
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Image analysis failed (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        removeStatusIndicator(statusId);
+
+        // Add bot response
+        addMessage(data.description, 'bot');
+        conversationHistory.push({ role: 'assistant', content: data.description });
+
+        // Save messages to database
+        try {
+            await sessionManager.saveMessage('user', `[Image attached] ${displayMessage}`);
+            await sessionManager.saveMessage('assistant', data.description);
+
+            // Update session title if first message
+            if (conversationHistory.length === 2) {
+                const title = sessionManager.generateSessionTitle(displayMessage);
+                await fetch(`${API_BASE_URL}/api/sessions/${sessionManager.getCurrentSessionId()}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                window.dispatchEvent(new CustomEvent('sessionNeedsReload'));
+            }
+        } catch (error) {
+            console.error('Failed to save messages:', error);
+        }
+
+        console.log('[Messaging] Image analysis complete');
+
+    } catch (error) {
+        removeStatusIndicator(statusId);
+        showError('Failed to analyze image: ' + error.message);
+        console.error('[Messaging] Image analysis error:', error);
+
+        // Remove last user message from history if request failed
+        if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
+            conversationHistory.pop();
+        }
+    } finally {
+        sendButton.disabled = false;
+        requestInProgress = false;
+        updateStatus('Ready', true);
+    }
+}
+
+// Add message with image to chat
+function addMessageWithImage(text, sender, imageDataUrl) {
+    if (!chatMessages) return;
+
+    // Hide welcome placeholder
+    const chatWelcome = document.getElementById('chatWelcome');
+    if (chatWelcome) {
+        chatWelcome.classList.add('hidden');
+    }
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+
+    // Add image if present
+    if (imageDataUrl) {
+        const imgElement = document.createElement('img');
+        imgElement.src = imageDataUrl;
+        imgElement.className = 'message-image';
+        imgElement.alt = 'Attached image';
+        contentDiv.appendChild(imgElement);
+    }
+
+    // Add text
+    const textElement = document.createElement('div');
+    textElement.innerHTML = text.replace(/\n/g, '<br>');
+    textElement.style.whiteSpace = 'pre-wrap';
+    contentDiv.appendChild(textElement);
+
+    messageDiv.appendChild(contentDiv);
+    chatMessages.appendChild(messageDiv);
+
+    // Scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 // Send message with SSE streaming support
 export async function sendMessage() {
     const message = messageInput.value.trim();
-    if (!message) return;
+    const hasImage = pendingImageBase64 !== null;
+
+    // Allow sending if there's a message OR an image
+    if (!message && !hasImage) return;
 
     // Check if request already in progress
     if (requestInProgress) {
@@ -568,6 +1041,12 @@ export async function sendMessage() {
     }
 
     requestInProgress = true;
+
+    // If there's an image, handle image analysis flow
+    if (hasImage) {
+        await handleImageMessage(message);
+        return;
+    }
 
     // Add user message to chat
     addMessage(message, 'user');
@@ -615,7 +1094,12 @@ export async function sendMessage() {
         const modelProviderSelect = document.getElementById('modelProvider');
         const modelProvider = modelProviderSelect ? modelProviderSelect.value : null;
 
+        // Get selected response style
+        const responseStyleSelect = document.getElementById('responseStyle');
+        const responseStyle = responseStyleSelect ? responseStyleSelect.value : 'Normal';
+
         console.log('Using model provider:', modelProvider || 'default');
+        console.log('Using response style:', responseStyle);
 
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
@@ -626,7 +1110,8 @@ export async function sendMessage() {
                 message: message,
                 conversation_history: recentHistory,
                 session_id: sessionManager.getCurrentSessionId(),
-                model_provider: modelProvider
+                model_provider: modelProvider,
+                response_style: responseStyle
             })
         });
 

@@ -1,7 +1,7 @@
 // Main Entry Point
 import { API_BASE_URL, checkSetupStatus, IS_SETUP_DONE } from './config.js';
 import { initializeSetup } from './setup.js';
-import { checkServerHealth, getModelProviders } from './modules/api.js';
+import { checkServerHealth, getModelProviders, getResponseStyles } from './modules/api.js';
 import {
     initializeUIElements,
     updateStatus,
@@ -207,7 +207,7 @@ let sessionManager = null;
 // Global DOM elements
 let messageInput, sendButton, clearButton, searchButton;
 let sidebarToggle, newChatButton, uploadButton, fileInput;
-let modelProviderSelect, themeToggle;
+let modelProviderSelect, responseStyleSelect, styleToggleBtn, styleDropdown, themeToggle;
 
 // Initialize model providers dropdown
 async function initializeModelProviders() {
@@ -319,6 +319,70 @@ export function getSelectedModelProvider() {
         return null;
     }
     return modelProviderSelect.value;
+}
+
+// Initialize response styles dropdown
+async function initializeResponseStyles() {
+    try {
+        console.log('[Main] Fetching response styles...');
+        const data = await getResponseStyles();
+        console.log('[Main] Response styles data:', data);
+
+        const styles = data.styles || ['Normal'];
+        const defaultStyle = data.default || 'Normal';
+        const descriptions = data.descriptions || {};
+
+        if (!responseStyleSelect) {
+            console.error('[Main] Response style select element not found');
+            return;
+        }
+
+        console.log('[Main] Found responseStyleSelect element, populating with', styles.length, 'styles');
+
+        // Clear existing options
+        responseStyleSelect.innerHTML = '';
+
+        // Add style options
+        styles.forEach(style => {
+            const option = document.createElement('option');
+            option.value = style;
+            option.textContent = style;
+            option.title = descriptions[style] || '';
+
+            if (style === defaultStyle) {
+                option.selected = true;
+            }
+
+            responseStyleSelect.appendChild(option);
+        });
+
+        // Store in localStorage for persistence
+        responseStyleSelect.addEventListener('change', () => {
+            localStorage.setItem('selectedResponseStyle', responseStyleSelect.value);
+            console.log('Response style changed to:', responseStyleSelect.value);
+        });
+
+        // Restore from localStorage if available
+        const savedStyle = localStorage.getItem('selectedResponseStyle');
+        if (savedStyle && styles.includes(savedStyle)) {
+            responseStyleSelect.value = savedStyle;
+        }
+
+        console.log('Response styles initialized:', styles);
+    } catch (error) {
+        console.error('Failed to initialize response styles:', error);
+        if (responseStyleSelect) {
+            responseStyleSelect.innerHTML = '<option value="Normal">Normal</option>';
+        }
+    }
+}
+
+// Get currently selected response style
+export function getSelectedResponseStyle() {
+    if (!responseStyleSelect || !responseStyleSelect.value) {
+        return 'Normal';
+    }
+    return responseStyleSelect.value;
 }
 
 // Model configurations for mini wizard
@@ -635,10 +699,17 @@ async function initializeApp() {
         console.log('[Main] Initializing model provider selector...');
         modelProviderSelect = document.getElementById('modelProvider');
 
+        // Initialize response style selector
+        console.log('[Main] Initializing response style selector...');
+        responseStyleSelect = document.getElementById('responseStyle');
+        styleToggleBtn = document.getElementById('styleToggleBtn');
+        styleDropdown = document.getElementById('styleDropdown');
+
         // Initialize mini model wizard
         miniModelWizard = new MiniModelWizard();
 
         await initializeModelProviders();
+        await initializeResponseStyles();
 
         // Initialize theme toggle
         console.log('[Main] Initializing theme toggle...');
@@ -726,6 +797,32 @@ function setupEventListeners() {
     }
     if (fileInput) {
         fileInput.addEventListener('change', handleFileUpload);
+    }
+
+    // Style toggle dropdown
+    if (styleToggleBtn && styleDropdown) {
+        styleToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = styleDropdown.classList.contains('show');
+            styleDropdown.classList.toggle('show');
+            styleToggleBtn.classList.toggle('active', !isOpen);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!styleDropdown.contains(e.target) && !styleToggleBtn.contains(e.target)) {
+                styleDropdown.classList.remove('show');
+                styleToggleBtn.classList.remove('active');
+            }
+        });
+
+        // Close dropdown when style is selected
+        if (responseStyleSelect) {
+            responseStyleSelect.addEventListener('change', () => {
+                styleDropdown.classList.remove('show');
+                styleToggleBtn.classList.remove('active');
+            });
+        }
     }
 
     // Textarea auto-resize

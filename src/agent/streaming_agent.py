@@ -35,7 +35,8 @@ async def create_streaming_response(
     message: str,
     conversation_history: List[Dict[str, str]],
     session_id: str = None,
-    model_provider: Optional[str] = None
+    model_provider: Optional[str] = None,
+    response_style: Optional[str] = None
 ) -> AsyncGenerator[str, None]:
     """
     Create async generator for streaming agent responses with tool execution updates.
@@ -97,6 +98,18 @@ async def create_streaming_response(
         logger.info(f"Total message: \n\n{history_messages}")
         logger.info(f"📩 User message: {message}")
 
+        # Build system prompt with response style modifier
+        base_system_prompt = Config.get_system_prompt()
+        style_name = response_style or Config.DEFAULT_RESPONSE_STYLE
+        style_modifier = Config.RESPONSE_STYLES.get(style_name, "")
+
+        if style_modifier:
+            system_prompt = f"{base_system_prompt}\n\n[Response Style: {style_name}]\n{style_modifier}"
+            logger.info(f"🎨 Using response style: {style_name}")
+        else:
+            system_prompt = base_system_prompt
+            logger.info(f"🎨 Using default response style: Normal")
+
         # Create hook for tool limit enforcement
         tool_limit_hook = ToolLimitHook(max_calls=Config.MAX_TOOL_CALLS)
 
@@ -135,7 +148,7 @@ async def create_streaming_response(
             name="Orchestrator Agent",
             model=model,
             tools=primary_tools,
-            system_prompt=Config.get_system_prompt(),
+            system_prompt=system_prompt,
             messages=history_messages,
             hooks=[tool_limit_hook],
             callback_handler=None
