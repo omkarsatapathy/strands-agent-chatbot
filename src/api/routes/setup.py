@@ -320,7 +320,8 @@ MODEL_CONFIGS = {
     "qwen3": {
         "name": "Qwen3-8B",
         "repo": "Qwen/Qwen3-8B-GGUF",
-        "size": "~5.2GB",
+        "filename": "Qwen3-8B-Q8_0.gguf",
+        "size": "~8.5GB",
         "server_args": ["-hf", "Qwen/Qwen3-8B-GGUF", "--jinja", "-c", "0"]
     }
 }
@@ -366,11 +367,25 @@ async def download_model(model: str = "gpt-oss"):
             models_dir.mkdir(exist_ok=True)
 
             model_dir_name = config['repo'].replace('/', '-')
-            process = await asyncio.create_subprocess_exec(
+
+            # Build command - download specific file if filename is specified
+            cmd = [
                 "huggingface-cli", "download",
                 config['repo'],
+            ]
+
+            # Add specific filename if specified (downloads only that file)
+            if 'filename' in config:
+                cmd.append(config['filename'])
+                yield f"data: [INFO] Downloading specific file: {config['filename']}\n\n"
+
+            cmd.extend([
                 "--local-dir", str(models_dir / model_dir_name),
                 "--local-dir-use-symlinks", "False",
+            ])
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT
             )
