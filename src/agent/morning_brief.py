@@ -98,9 +98,9 @@ class ServerManager:
             process = subprocess.Popen(
                 [
                     "llama-server",
-                    "-hf", "ggml-org/gpt-oss-20b-GGUF",
+                    "-hf", "unsloth/gpt-oss-20b-GGUF",
                     "--jinja",
-                    "-c", "0",
+                    "-c", "4096", "-ngl", "99", "-fa", "on", "--n-cpu-moe", "4",
                     "--host", "127.0.0.1",
                     "--port", str(ServerManager.LLAMA_PORT)
                 ],

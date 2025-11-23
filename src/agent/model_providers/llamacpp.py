@@ -148,7 +148,7 @@ def stop_server():
             _current_model = None
 
 
-def start_server(model_name: str, port: int = 8033, ctx_size: int = 32768, n_gpu_layers: int = 99) -> bool:
+def start_server(model_name: str, port: int = 8033, ctx_size: int = 4096, n_gpu_layers: int = 99, n_cpu_moe: int = 4) -> bool:
     """
     Start llama-server with the specified model.
 
@@ -157,6 +157,7 @@ def start_server(model_name: str, port: int = 8033, ctx_size: int = 32768, n_gpu
         port: Port to run the server on
         ctx_size: Context size for the model
         n_gpu_layers: Number of GPU layers to offload
+        n_cpu_moe: Number of MoE layers to keep on CPU (for Mac memory limits)
 
     Returns:
         True if server started successfully, False otherwise
@@ -192,6 +193,8 @@ def start_server(model_name: str, port: int = 8033, ctx_size: int = 32768, n_gpu
         "--port", str(port),
         "-c", str(ctx_size),
         "-ngl", str(n_gpu_layers),
+        "-fa", "on",  # Flash attention
+        "--n-cpu-moe", str(n_cpu_moe),  # Keep MoE layers on CPU for Mac
         "--host", "127.0.0.1",
         "--jinja"
     ]

@@ -275,8 +275,8 @@ async def start_llama_server():
             # Start the server
             process = await asyncio.create_subprocess_exec(
                 str(llama_server),
-                "-hf", "ggml-org/gpt-oss-20b-GGUF",
-                "--jinja", "-c", "0",
+                "-hf", "unsloth/gpt-oss-20b-GGUF",
+                "--jinja", "-c", "4096", "-ngl", "99", "-fa", "on", "--n-cpu-moe", "4",
                 "--host", "127.0.0.1",
                 "--port", "8033",
                 stdout=asyncio.subprocess.PIPE,
@@ -313,9 +313,9 @@ async def start_llama_server():
 MODEL_CONFIGS = {
     "gpt-oss": {
         "name": "GPT-OSS-20B",
-        "repo": "ggml-org/gpt-oss-20b-GGUF",
+        "repo": "unsloth/gpt-oss-20b-GGUF",
         "size": "~13.8GB",
-        "server_args": ["-hf", "ggml-org/gpt-oss-20b-GGUF", "--jinja", "-c", "0"]
+        "server_args": ["-hf", "unsloth/gpt-oss-20b-GGUF", "--jinja", "-c", "4096", "-ngl", "99", "-fa", "on", "--n-cpu-moe", "4"]
     },
     "qwen3": {
         "name": "Qwen3-8B",
