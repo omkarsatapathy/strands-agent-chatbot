@@ -80,7 +80,7 @@ def stop_server():
             _current_model = None
 
 
-def start_server(model_name: str, port: int = 8033, ctx_size: int = 4096, n_gpu_layers: int = 99) -> bool:
+def start_server(model_name: str, port: int = 8033, ctx_size: int = 32768, n_gpu_layers: int = 99) -> bool:
     """
     Start llama-server with the specified model.
 
