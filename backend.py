@@ -1,6 +1,11 @@
 """FastAPI backend for the chatbot application - Main entry point."""
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress OpenTelemetry context detach warnings (known issue with async context management)
+warnings.filterwarnings("ignore", message=".*Failed to detach context.*")
+warnings.filterwarnings("ignore", message=".*was created in a different Context.*")
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))

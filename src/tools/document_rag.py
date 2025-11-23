@@ -302,7 +302,7 @@ def get_rag_manager(session_id: str) -> DocumentRAGManager:
 
 
 @tool
-def query_documents(query: str, session_id: str) -> Dict[str, Any]:
+def query_documents(query: str, session_id: str) -> str:
     """
     Strands tool: Query uploaded documents for information using RAG.
 
@@ -317,8 +317,9 @@ def query_documents(query: str, session_id: str) -> Dict[str, Any]:
         session_id: The current chat session ID
 
     Returns:
-        Dictionary with the answer from the documents or error message
+        JSON string with the answer from the documents or error message
     """
+    import json
     logger.info(
         f"query_documents tool called",
         extra={"extra_data": {
@@ -340,10 +341,10 @@ def query_documents(query: str, session_id: str) -> Dict[str, Any]:
                     "source_nodes": result.get("source_nodes", 0)
                 }}
             )
-            return {
+            return json.dumps({
                 "answer": result["answer"],
                 "sources": result.get("source_nodes", 0)
-            }
+            })
         else:
             logger.warning(
                 f"Document query failed",
@@ -352,9 +353,9 @@ def query_documents(query: str, session_id: str) -> Dict[str, Any]:
                     "error": result.get("error")
                 }}
             )
-            return {
+            return json.dumps({
                 "error": result.get("error", "Unknown error occurred")
-            }
+            })
 
     except Exception as e:
         logger.error(
@@ -366,6 +367,6 @@ def query_documents(query: str, session_id: str) -> Dict[str, Any]:
             }},
             exc_info=True
         )
-        return {
+        return json.dumps({
             "error": f"Failed to query documents: {str(e)}"
-        }
+        })

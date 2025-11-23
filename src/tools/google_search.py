@@ -9,7 +9,7 @@ from strands import tool
 logger = get_logger("chatbot.tools")
 
 @tool
-def google_search_with_context(query: str) -> Dict[str, Any]:
+def google_search_with_context(query: str) -> str:
     """
     Strands tool: Perform a Google Custom Search and return the top result with full page context.
 
@@ -20,8 +20,9 @@ def google_search_with_context(query: str) -> Dict[str, Any]:
         query: The search query string
 
     Returns:
-        Dictionary with the top search result including title, link, snippet, and full page context
+        JSON string with the top search result including title, link, snippet, and full page context
     """
+    import json
     api_key, search_engine_id = Config.get_google_credentials()
 
     logger.info(
@@ -81,13 +82,13 @@ def google_search_with_context(query: str) -> Dict[str, Any]:
                 extra={"extra_data": {"query": query, "url": result['link']}}
             )
 
-            return result
+            return json.dumps(result, ensure_ascii=False)
         else:
             logger.warning(
                 f"No search results found",
                 extra={"extra_data": {"query": query}}
             )
-            return {"error": "No search results found"}
+            return json.dumps({"error": "No search results found"})
 
     except requests.exceptions.HTTPError as e:
         logger.error(
@@ -95,14 +96,14 @@ def google_search_with_context(query: str) -> Dict[str, Any]:
             extra={"extra_data": {"status_code": e.response.status_code, "query": query}},
             exc_info=True
         )
-        return {"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"}
+        return json.dumps({"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"})
     except Exception as e:
         logger.error(
             f"Unexpected error during Google search",
             extra={"extra_data": {"query": query, "error": str(e)}},
             exc_info=True
         )
-        return {"error": f"Search failed: {str(e)}"}
+        return json.dumps({"error": f"Search failed: {str(e)}"})
 
 
 def _fetch_page_context(url: str, max_chars: int = 5000) -> str:

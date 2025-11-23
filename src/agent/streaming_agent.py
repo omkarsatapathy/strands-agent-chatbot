@@ -8,7 +8,13 @@ This implementation follows Strands best practices:
 """
 import json
 import time
+import warnings
 from typing import List, Dict, AsyncGenerator, Optional
+
+# Suppress OpenTelemetry context warnings that occur in async streaming
+# This is a known issue with async context management across different coroutines
+warnings.filterwarnings("ignore", message=".*was created in a different Context.*")
+
 from strands import Agent
 from strands.multiagent import Swarm
 from strands_tools import calculator
@@ -16,6 +22,7 @@ from ..config import Config
 from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
+from ..tools.link_executor import fetch_url_content, fetch_multiple_urls
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
 from .gmail_tool_wrappers import get_session_tools, get_gmail_tools
@@ -104,7 +111,7 @@ async def create_streaming_response(
         # Create News Reader Agent (specialized for email and news analysis)
         news_tools = get_gmail_tools()
         news_reader_agent = Agent(
-            name="News Reader Agent",
+            name="Gmail Reader Agent",
             model=model,
             tools=news_tools,
             system_prompt=Config.get_news_reader_agent_prompt(),
@@ -113,7 +120,7 @@ async def create_streaming_response(
         )
 
         # Create Researcher Agent (specialized for web research and information gathering)
-        researcher_tools = [google_search_with_context]
+        researcher_tools = [google_search_with_context, fetch_url_content, fetch_multiple_urls]
         researcher_agent = Agent(
             name="Researcher Agent",
             model=model,
@@ -159,8 +166,12 @@ async def create_streaming_response(
             'fetch_gmail_wrapper': '📧 Fetching news from emails',
             'gmail_auth_status': '🔐 Checking Gmail auth status',
             'gmail_auth_wrapper': '🔐 Checking Gmail auth status',
-            'handoff_to_agent': '🔄 Handing off to News Reader Agent'
+            'fetch_url_content': '🔗 Fetching URL content',
+            'fetch_multiple_urls': '🔗 Fetching multiple URLs'
         }
+
+        # Track handoff target agent dynamically
+        current_handoff_target = None
 
         # Track state
         tool_count = 0
@@ -185,6 +196,11 @@ async def create_streaming_response(
                 # Handle text generation from agents
                 if "data" in inner_event:
                     text_chunk = inner_event["data"]
+                    # Filter out handoff tool JSON output from response
+                    # These are internal swarm messages, not user-facing content
+                    if text_chunk.strip().startswith('{"status":"handoff'):
+                        logger.debug(f"Filtering handoff JSON from response: {text_chunk[:50]}...")
+                        continue
                     complete_response += text_chunk
 
                 # Handle tool usage events from agents

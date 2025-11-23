@@ -128,7 +128,7 @@ def fetch_gmail_messages(
     max_results: int = None,
     query: str = "",
     user_id: str = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Strands tool: Fetch Gmail messages for the authenticated user.
 
@@ -138,8 +138,9 @@ def fetch_gmail_messages(
         user_id: User identifier (default from config)
 
     Returns:
-        Dictionary containing list of messages with id, subject, from, date, snippet, and body
+        JSON string containing list of messages with id, subject, from, date, snippet, and body
     """
+    import json
     max_results = max_results or Config.GMAIL_DEFAULT_MAX_RESULTS
     auth_manager = GmailAuthManager(user_id)
 
@@ -149,10 +150,10 @@ def fetch_gmail_messages(
 
     if not auth_manager.is_authenticated():
         logger.warning("User not authenticated for Gmail")
-        return {
+        return json.dumps({
             "error": "Not authenticated",
             "message": "Please authenticate with Gmail first. Visit /auth/gmail to authorize."
-        }
+        })
 
     try:
         service = build('gmail', 'v1', credentials=auth_manager.get_credentials())
@@ -164,7 +165,7 @@ def fetch_gmail_messages(
 
         if not messages:
             logger.info("No messages found")
-            return {"messages": [], "count": 0, "message": "No messages found matching the query."}
+            return json.dumps({"messages": [], "count": 0, "message": "No messages found matching the query."})
 
         detailed_messages = []
         for msg in messages:
@@ -198,18 +199,18 @@ def fetch_gmail_messages(
         logger.info(f"Successfully fetched {len(detailed_messages)} Gmail messages",
             extra={"extra_data": {"count": len(detailed_messages), "query": query}})
 
-        return {"messages": detailed_messages, "count": len(detailed_messages), "query": query}
+        return json.dumps({"messages": detailed_messages, "count": len(detailed_messages), "query": query}, ensure_ascii=False)
 
     except HttpError as e:
         logger.error("Gmail API error", extra={"extra_data": {"error": str(e)}}, exc_info=True)
-        return {"error": "Gmail API error", "message": f"Failed to fetch messages: {str(e)}"}
+        return json.dumps({"error": "Gmail API error", "message": f"Failed to fetch messages: {str(e)}"})
     except Exception as e:
         logger.error("Unexpected error fetching Gmail messages", extra={"extra_data": {"error": str(e)}}, exc_info=True)
-        return {"error": "Unexpected error", "message": f"Failed to fetch messages: {str(e)}"}
+        return json.dumps({"error": "Unexpected error", "message": f"Failed to fetch messages: {str(e)}"})
 
 
 @tool
-def gmail_auth_status(user_id: str = None) -> Dict[str, Any]:
+def gmail_auth_status(user_id: str = None) -> str:
     """
     Strands tool: Check Gmail authentication status.
 
@@ -217,8 +218,9 @@ def gmail_auth_status(user_id: str = None) -> Dict[str, Any]:
         user_id: User identifier (default from config)
 
     Returns:
-        Dictionary with authentication status
+        JSON string with authentication status
     """
+    import json
     auth_manager = GmailAuthManager(user_id)
     is_authenticated = auth_manager.is_authenticated()
 
@@ -226,8 +228,8 @@ def gmail_auth_status(user_id: str = None) -> Dict[str, Any]:
         "user_id": auth_manager.user_id, "is_authenticated": is_authenticated
     }})
 
-    return {
+    return json.dumps({
         "authenticated": is_authenticated,
         "user_id": auth_manager.user_id,
         "message": "Authenticated" if is_authenticated else "Not authenticated. Please authorize via /auth/gmail"
-    }
+    })

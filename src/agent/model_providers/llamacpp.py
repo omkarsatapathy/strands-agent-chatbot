@@ -4,6 +4,7 @@ import time
 import requests
 import os
 import signal
+import json
 from pathlib import Path
 from strands.models.llamacpp import LlamaCppModel
 from .base import BaseModelProvider
@@ -11,6 +12,73 @@ from ...config import Config
 from ...logging_config import get_logger
 
 logger = get_logger("chatbot.model_providers.llamacpp")
+
+
+class DebugLlamaCppModel(LlamaCppModel):
+    """LlamaCppModel with request debugging and better error handling."""
+
+    def _format_request(self, messages, tool_specs=None, system_prompt=None):
+        """Override to log the formatted request."""
+        request = super()._format_request(messages, tool_specs, system_prompt)
+        logger.info(f"🔍 LlamaCpp Request (messages count: {len(request.get('messages', []))})")
+        # Log the messages for debugging
+        try:
+            for i, msg in enumerate(request.get('messages', [])):
+                role = msg.get('role', 'unknown')
+                content = msg.get('content', '')
+                tool_calls = msg.get('tool_calls', [])
+                tool_call_id = msg.get('tool_call_id', '')
+
+                content_preview = str(content)[:100] if content else '(empty)'
+                logger.info(f"  Message {i}: role={role}, content={content_preview}, tool_calls={len(tool_calls)}, tool_call_id={tool_call_id}")
+
+                # Log full message if it has tool role (to debug 400 error)
+                if role == 'tool':
+                    logger.info(f"    FULL TOOL MESSAGE: {json.dumps(msg)[:500]}")
+
+                # Log assistant messages with tool_calls
+                if role == 'assistant' and tool_calls:
+                    logger.info(f"    ASSISTANT TOOL_CALLS: {json.dumps(tool_calls)[:500]}")
+
+            # Log total payload size for debugging context overflow
+            payload_size = len(json.dumps(request))
+            logger.info(f"📏 Total request payload size: {payload_size:,} bytes")
+
+            # Log tool specs count
+            if tool_specs:
+                logger.info(f"🔧 Tool specs count: {len(tool_specs)}")
+
+            # If payload is large, dump full request to file for debugging
+            if payload_size > 10000:
+                debug_file = "/tmp/llamacpp_debug_request.json"
+                with open(debug_file, 'w') as f:
+                    json.dump(request, f, indent=2)
+                logger.info(f"📝 Full request dumped to {debug_file}")
+        except Exception as e:
+            logger.error(f"Failed to log request details: {e}")
+        return request
+
+    async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+        """Override stream to add better error handling for 400 errors."""
+        import httpx
+        try:
+            async for event in super().stream(messages, tool_specs, system_prompt, **kwargs):
+                yield event
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                # Log the full error response for debugging
+                try:
+                    error_body = e.response.text
+                    logger.error(f"❌ LlamaCpp 400 Error Response: {error_body[:500]}")
+                except Exception:
+                    pass
+                # Re-raise with more context
+                raise RuntimeError(
+                    f"LlamaCpp server returned 400 Bad Request. "
+                    f"This usually means the message format is incompatible with the model's chat template. "
+                    f"Error: {str(e)}"
+                ) from e
+            raise
 
 # Global server process tracking
 _server_process = None
@@ -193,9 +261,10 @@ class LlamaCppGptOssProvider(BaseModelProvider):
         if not start_server(self.model_name):
             raise RuntimeError(f"Failed to start llama-server with {self.model_name}")
 
-        return LlamaCppModel(
+        return DebugLlamaCppModel(
             base_url=self.base_url,
             model_id=self.model_id,
+            timeout=120.0,  # Increased timeout for large models
             params={
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
@@ -248,6 +317,7 @@ class LlamaCppQwen3Provider(BaseModelProvider):
         return LlamaCppModel(
             base_url=self.base_url,
             model_id=self.model_id,
+            timeout=120.0,  # Increased timeout for large models
             params={
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
