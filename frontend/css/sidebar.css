@@ -112,8 +112,8 @@
 }
 
 .session-delete:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    background: rgba(64, 119, 247, 0.1);
+    color: #4077F7;
 }
 
 /* Delete confirmation inline */

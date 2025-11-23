@@ -32,11 +32,23 @@ def get_model_path(model_name: str) -> Path:
     project_root = get_project_root()
 
     if model_name == "gpt-oss":
-        # GPT-OSS-20B model path
-        return project_root / "models" / "gpt-oss-20B-v2.2.Q6_K.gguf"
+        # GPT-OSS-20B model path - check both possible locations
+        new_path = project_root / "models" / "ggml-org-gpt-oss-20b-GGUF" / "gpt-oss-20b-mxfp4.gguf"
+        old_path = project_root / "models" / "gpt-oss-20B-v2.2.Q6_K.gguf"
+        if new_path.exists():
+            return new_path
+        return old_path
     elif model_name == "qwen3":
-        # Qwen3-8B model path
-        return project_root / "models" / "Qwen-Qwen3-8B-GGUF" / "Qwen3-8B-Q8_0.gguf"
+        # Qwen3-8B model path - check both possible locations
+        new_path = project_root / "models" / "Qwen-Qwen3-8B-GGUF" / "Qwen3-8B-Q8_0.gguf"
+        hf_path = project_root / "models" / "Qwen-Qwen3-8B-GGUF"
+        if new_path.exists():
+            return new_path
+        # Check for any gguf file in the directory
+        if hf_path.exists():
+            for f in hf_path.glob("*.gguf"):
+                return f
+        return new_path
     else:
         raise ValueError(f"Unknown model: {model_name}")
 

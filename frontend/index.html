@@ -483,6 +483,81 @@
         </div>
     </div>
 
+    <!-- Mini Model Download Wizard -->
+    <div class="mini-model-wizard-overlay" id="miniModelWizard" style="display: none;">
+        <div class="setup-backdrop"></div>
+        <div class="setup-wizard mini-wizard">
+            <div class="setup-page active">
+                <div class="setup-api-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </div>
+                <h1 class="setup-title">Download AI Model</h1>
+                <p class="setup-description">This model needs to be downloaded before use. Download it now to enable local AI inference.</p>
+
+                <div class="setup-note">
+                    <strong>Note:</strong> Models are large files and may take several minutes to download depending on your internet speed.
+                </div>
+
+                <!-- Model Card will be injected here -->
+                <div id="miniModelCard" class="model-card" data-model="">
+                    <div class="model-card-header">
+                        <div class="model-card-info">
+                            <div class="model-name" id="miniModelName">Model Name</div>
+                            <div class="model-desc" id="miniModelDesc">Model description</div>
+                        </div>
+                        <div class="model-card-meta">
+                            <span class="model-size" id="miniModelSize">~0 GB</span>
+                            <button class="model-download-btn" id="miniModelDownloadBtn" data-action="download-model" data-model="">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="model-progress-container" style="display: none;">
+                        <div class="model-progress-bar">
+                            <div class="model-progress-fill"></div>
+                        </div>
+                        <div class="model-progress-text">
+                            <span class="model-progress-percent">0%</span>
+                            <span class="model-progress-speed"></span>
+                        </div>
+                    </div>
+                    <div class="model-status">
+                        <span class="status-text">Ready to download</span>
+                    </div>
+                </div>
+
+                <!-- Terminal Output -->
+                <div class="terminal-container" id="miniTerminalContainer" style="display: none;">
+                    <div class="terminal-header">
+                        <span class="terminal-title">Download Output</span>
+                    </div>
+                    <div class="terminal-output" id="miniTerminalOutput"></div>
+                </div>
+
+                <div class="setup-actions">
+                    <button class="setup-btn secondary" id="miniWizardSkip">Skip</button>
+                    <button class="setup-btn primary" id="miniWizardDownload">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modular JavaScript (ES6 Modules) -->
     <script type="module" src="/static/js/main.js"></script>
 </body>

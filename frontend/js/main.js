@@ -230,15 +230,25 @@ async function initializeModelProviders() {
             return;
         }
 
+        // Store providers data globally
+        providersData = providers;
+
         // Add available providers
         providers.forEach(provider => {
             const option = document.createElement('option');
             option.value = provider.name;
             option.textContent = provider.display_name;
-            option.disabled = !provider.available;
+            option.dataset.available = provider.available ? 'true' : 'false';
+
+            // Don't disable LlamaCPP models - allow clicking to trigger download wizard
+            // Only disable non-downloadable providers
+            if (!provider.available && !MODEL_CONFIGS[provider.name]) {
+                option.disabled = true;
+            }
 
             if (!provider.available) {
                 option.textContent += ' (Not configured)';
+                option.style.color = '#9ca3af';  // Gray out unavailable options
             }
 
             if (provider.name === defaultProvider) {
@@ -248,8 +258,36 @@ async function initializeModelProviders() {
             modelProviderSelect.appendChild(option);
         });
 
-        // Store in localStorage for persistence
-        modelProviderSelect.addEventListener('change', () => {
+        // Handle click on disabled options - intercept mousedown on select
+        modelProviderSelect.addEventListener('mousedown', (e) => {
+            // Store the currently selected value before any change
+            modelProviderSelect.dataset.previousValue = modelProviderSelect.value;
+        });
+
+        // Store in localStorage for persistence and handle disabled option clicks
+        modelProviderSelect.addEventListener('change', (e) => {
+            const selectedOption = modelProviderSelect.options[modelProviderSelect.selectedIndex];
+
+            // Check if this is a LlamaCPP model that's not available
+            if (selectedOption && selectedOption.dataset.available === 'false') {
+                const providerName = selectedOption.value;
+
+                // Check if it's a LlamaCPP model (can be downloaded)
+                if (MODEL_CONFIGS[providerName]) {
+                    // Revert to previous selection
+                    const prevValue = modelProviderSelect.dataset.previousValue;
+                    if (prevValue) {
+                        modelProviderSelect.value = prevValue;
+                    }
+
+                    // Show mini wizard
+                    if (miniModelWizard) {
+                        miniModelWizard.show(providerName);
+                    }
+                    return;
+                }
+            }
+
             localStorage.setItem('selectedModelProvider', modelProviderSelect.value);
             console.log('Model provider changed to:', modelProviderSelect.value);
         });
@@ -282,6 +320,231 @@ export function getSelectedModelProvider() {
     }
     return modelProviderSelect.value;
 }
+
+// Model configurations for mini wizard
+const MODEL_CONFIGS = {
+    'llamacpp-gpt-oss': {
+        name: 'GPT-OSS-20B',
+        desc: 'General purpose, high quality responses',
+        size: '~13.8 GB',
+        modelKey: 'gpt-oss'
+    },
+    'llamacpp-qwen3': {
+        name: 'Qwen3-8B',
+        desc: 'Fast, efficient multilingual model',
+        size: '~5.2 GB',
+        modelKey: 'qwen3'
+    }
+};
+
+// Store providers data globally for click handler
+let providersData = [];
+
+// Mini Model Download Wizard
+class MiniModelWizard {
+    constructor() {
+        this.overlay = document.getElementById('miniModelWizard');
+        this.modelCard = document.getElementById('miniModelCard');
+        this.modelName = document.getElementById('miniModelName');
+        this.modelDesc = document.getElementById('miniModelDesc');
+        this.modelSize = document.getElementById('miniModelSize');
+        this.downloadBtn = document.getElementById('miniWizardDownload');
+        this.skipBtn = document.getElementById('miniWizardSkip');
+        this.terminalContainer = document.getElementById('miniTerminalContainer');
+        this.terminalOutput = document.getElementById('miniTerminalOutput');
+        this.progressContainer = this.modelCard?.querySelector('.model-progress-container');
+        this.progressFill = this.modelCard?.querySelector('.model-progress-fill');
+        this.progressPercent = this.modelCard?.querySelector('.model-progress-percent');
+        this.statusDiv = this.modelCard?.querySelector('.model-status');
+
+        this.currentModel = null;
+        this.downloading = false;
+        this.eventSource = null;
+
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        this.skipBtn?.addEventListener('click', () => this.hide());
+        this.downloadBtn?.addEventListener('click', () => this.startDownload());
+        this.overlay?.querySelector('.setup-backdrop')?.addEventListener('click', () => {
+            if (!this.downloading) this.hide();
+        });
+    }
+
+    show(providerName) {
+        const config = MODEL_CONFIGS[providerName];
+        if (!config) return;
+
+        this.currentModel = config.modelKey;
+
+        // Update UI
+        if (this.modelName) this.modelName.textContent = config.name;
+        if (this.modelDesc) this.modelDesc.textContent = config.desc;
+        if (this.modelSize) this.modelSize.textContent = config.size;
+        if (this.modelCard) this.modelCard.dataset.model = config.modelKey;
+
+        // Reset state
+        if (this.progressContainer) this.progressContainer.style.display = 'none';
+        if (this.progressFill) this.progressFill.style.width = '0%';
+        if (this.terminalContainer) this.terminalContainer.style.display = 'none';
+        if (this.terminalOutput) this.terminalOutput.innerHTML = '';
+        if (this.statusDiv) {
+            this.statusDiv.className = 'model-status';
+            this.statusDiv.querySelector('.status-text').textContent = 'Ready to download';
+        }
+        if (this.downloadBtn) {
+            this.downloadBtn.disabled = false;
+            this.downloadBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Download`;
+        }
+
+        // Show overlay
+        if (this.overlay) {
+            this.overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    hide() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        if (this.overlay) {
+            this.overlay.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        this.downloading = false;
+    }
+
+    async startDownload() {
+        if (this.downloading || !this.currentModel) return;
+
+        this.downloading = true;
+
+        // Show progress
+        if (this.progressContainer) this.progressContainer.style.display = 'block';
+        if (this.terminalContainer) this.terminalContainer.style.display = 'block';
+        if (this.terminalOutput) this.terminalOutput.innerHTML = '';
+
+        // Update status
+        if (this.statusDiv) {
+            this.statusDiv.className = 'model-status downloading';
+            this.statusDiv.querySelector('.status-text').textContent = 'Downloading...';
+        }
+
+        // Disable buttons
+        if (this.downloadBtn) {
+            this.downloadBtn.disabled = true;
+            this.downloadBtn.innerHTML = 'Downloading...';
+        }
+        if (this.skipBtn) this.skipBtn.disabled = true;
+
+        try {
+            this.eventSource = new EventSource(`${API_BASE_URL}/api/setup/model-download?model=${this.currentModel}`);
+
+            this.eventSource.onmessage = (event) => {
+                const data = event.data;
+                this.appendOutput(data);
+
+                // Parse progress
+                const fetchingMatch = data.match(/Fetching\s+\d+\s+files:\s*(\d+)%/);
+                if (fetchingMatch) {
+                    const percent = parseFloat(fetchingMatch[1]);
+                    if (this.progressFill) this.progressFill.style.width = `${percent}%`;
+                    if (this.progressPercent) this.progressPercent.textContent = `${percent}%`;
+                }
+
+                const progressMatch = data.match(/(\d+(?:\.\d+)?)\s*%\|/);
+                if (progressMatch) {
+                    const percent = parseFloat(progressMatch[1]);
+                    if (this.progressFill) this.progressFill.style.width = `${percent}%`;
+                    if (this.progressPercent) this.progressPercent.textContent = `${percent.toFixed(0)}%`;
+                }
+
+                // Check for completion
+                if (data.includes('[COMPLETE]')) {
+                    this.eventSource.close();
+                    this.downloading = false;
+
+                    if (this.progressFill) this.progressFill.style.width = '100%';
+                    if (this.progressPercent) this.progressPercent.textContent = '100%';
+                    if (this.statusDiv) {
+                        this.statusDiv.className = 'model-status completed';
+                        this.statusDiv.querySelector('.status-text').textContent = 'Downloaded & Ready';
+                    }
+                    if (this.downloadBtn) {
+                        this.downloadBtn.innerHTML = '✓ Downloaded';
+                    }
+
+                    // Refresh model providers after successful download
+                    setTimeout(() => {
+                        this.hide();
+                        initializeModelProviders();
+                    }, 1500);
+                }
+
+                // Check for error
+                if (data.includes('[ERROR]')) {
+                    this.downloading = false;
+                    if (this.statusDiv) {
+                        this.statusDiv.className = 'model-status error';
+                        this.statusDiv.querySelector('.status-text').textContent = 'Download failed';
+                    }
+                    if (this.downloadBtn) {
+                        this.downloadBtn.disabled = false;
+                        this.downloadBtn.innerHTML = 'Retry';
+                    }
+                    if (this.skipBtn) this.skipBtn.disabled = false;
+                }
+            };
+
+            this.eventSource.onerror = () => {
+                this.eventSource.close();
+                this.downloading = false;
+                if (this.statusDiv) {
+                    this.statusDiv.className = 'model-status error';
+                    this.statusDiv.querySelector('.status-text').textContent = 'Connection lost';
+                }
+                if (this.downloadBtn) {
+                    this.downloadBtn.disabled = false;
+                    this.downloadBtn.innerHTML = 'Retry';
+                }
+                if (this.skipBtn) this.skipBtn.disabled = false;
+            };
+
+        } catch (error) {
+            console.error('Download error:', error);
+            this.downloading = false;
+            if (this.downloadBtn) {
+                this.downloadBtn.disabled = false;
+                this.downloadBtn.innerHTML = 'Retry';
+            }
+            if (this.skipBtn) this.skipBtn.disabled = false;
+        }
+    }
+
+    appendOutput(text) {
+        if (!this.terminalOutput) return;
+
+        let formatted = text;
+        if (text.includes('[STEP]')) formatted = `<span class="step">${text}</span>`;
+        else if (text.includes('[SUCCESS]')) formatted = `<span class="success">${text}</span>`;
+        else if (text.includes('[ERROR]')) formatted = `<span class="error">${text}</span>`;
+        else if (text.includes('[INFO]') || text.includes('[COMPLETE]')) formatted = `<span class="info">${text}</span>`;
+
+        this.terminalOutput.innerHTML += formatted + '\n';
+        this.terminalOutput.scrollTop = this.terminalOutput.scrollHeight;
+    }
+}
+
+let miniModelWizard = null;
 
 // Initialize theme from localStorage or system preference
 function initializeTheme() {
@@ -371,6 +634,10 @@ async function initializeApp() {
         // Initialize model provider selector
         console.log('[Main] Initializing model provider selector...');
         modelProviderSelect = document.getElementById('modelProvider');
+
+        // Initialize mini model wizard
+        miniModelWizard = new MiniModelWizard();
+
         await initializeModelProviders();
 
         // Initialize theme toggle
