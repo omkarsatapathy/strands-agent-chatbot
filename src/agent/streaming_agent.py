@@ -7,6 +7,7 @@ This implementation follows Strands best practices:
 - Implements Swarm pattern for autonomous agent collaboration
 """
 import json
+import re
 import time
 import warnings
 from typing import List, Dict, AsyncGenerator, Optional
@@ -23,6 +24,13 @@ from ..logging_config import get_logger
 from ..tools.google_search import google_search_with_context
 from ..tools.datetime_ist import get_current_datetime_ist
 from ..tools.link_executor import fetch_url_content, fetch_multiple_urls
+from ..tools.google_maps import (
+    search_nearby_places,
+    get_directions,
+    get_traffic_info,
+    get_place_details,
+    explore_area
+)
 from .callback_handler import ToolLimitHook
 from .model_providers import ModelProviderFactory
 from .gmail_tool_wrappers import get_session_tools, get_gmail_tools
@@ -143,6 +151,17 @@ async def create_streaming_response(
             callback_handler=None
         )
 
+        # Create Maps Agent (specialized for location, navigation, and traffic queries)
+        maps_tools = [search_nearby_places, get_directions, get_traffic_info, get_place_details, explore_area]
+        maps_agent = Agent(
+            name="Maps Agent",
+            model=model,
+            tools=maps_tools,
+            system_prompt=Config.get_maps_agent_prompt(),
+            hooks=[tool_limit_hook],
+            callback_handler=None
+        )
+
         # Create Primary Orchestrator Agent
         orchestrator_agent = Agent(
             name="Orchestrator Agent",
@@ -156,10 +175,10 @@ async def create_streaming_response(
 
         # Create Swarm with all agents
         swarm = Swarm(
-            nodes=[orchestrator_agent, news_reader_agent, researcher_agent],
+            nodes=[orchestrator_agent, news_reader_agent, researcher_agent, maps_agent],
             entry_point=orchestrator_agent,
-            max_handoffs=3,
-            max_iterations=5
+            max_handoffs=4,
+            max_iterations=6
         )
 
         # Send connected event
@@ -180,7 +199,12 @@ async def create_streaming_response(
             'gmail_auth_status': '🔐 Checking Gmail auth status',
             'gmail_auth_wrapper': '🔐 Checking Gmail auth status',
             'fetch_url_content': '🔗 Fetching URL content',
-            'fetch_multiple_urls': '🔗 Fetching multiple URLs'
+            'fetch_multiple_urls': '🔗 Fetching multiple URLs',
+            'search_nearby_places': '📍 Searching nearby places',
+            'get_directions': '🗺️ Getting directions',
+            'get_traffic_info': '🚗 Checking traffic',
+            'get_place_details': '🏪 Getting place details',
+            'explore_area': '🔍 Exploring area'
         }
 
         # Track handoff target agent dynamically
@@ -191,6 +215,7 @@ async def create_streaming_response(
         previous_tool_use = None
         complete_response = ""
         last_heartbeat = time.time()
+        maps_widget_data = None  # Store maps widget metadata from tool results
 
         # Stream events using async iterator (Strands best practice with Swarm)
         async for event in swarm.stream_async(message):
@@ -215,6 +240,59 @@ async def create_streaming_response(
                         logger.debug(f"Filtering handoff JSON from response: {text_chunk[:50]}...")
                         continue
                     complete_response += text_chunk
+
+                # Capture tool results to extract maps widget metadata
+                elif "message" in inner_event:
+                    msg = inner_event.get("message", {})
+                    logger.info(f"🔍 Message event received. Type: {type(msg)}, Keys: {msg.keys() if isinstance(msg, dict) else 'N/A'}")
+                    
+                    if isinstance(msg, dict) and msg.get("role") == "user":
+                        # Tool results come as user messages with toolResult content
+                        content_list = msg.get("content", [])
+                        logger.info(f"🔍 Content list type: {type(content_list)}, Length: {len(content_list) if isinstance(content_list, list) else 'N/A'}")
+                        
+                        for idx, content_item in enumerate(content_list):
+                            logger.info(f"🔍 Content item {idx}: Type={type(content_item)}, Keys={content_item.keys() if isinstance(content_item, dict) else 'N/A'}")
+                            
+                            if isinstance(content_item, dict) and "toolResult" in content_item:
+                                tool_result = content_item["toolResult"]
+                                logger.info(f"🔍 Tool result found! Type: {type(tool_result)}, Keys: {tool_result.keys() if isinstance(tool_result, dict) else 'N/A'}")
+                                logger.info(f"🔍 Tool result content preview: {str(tool_result)[:500]}...")
+                                
+                                tr_content = tool_result.get("content", [])
+                                
+                                # Helper to extract widget from text
+                                def extract_widget(text_content):
+                                    if "<!--MAPS_WIDGET:" in text_content:
+                                        match = re.search(r'<!--MAPS_WIDGET:(.*?)-->', text_content, re.DOTALL)
+                                        if match:
+                                            try:
+                                                return json.loads(match.group(1))
+                                            except json.JSONDecodeError:
+                                                pass
+                                    return None
+
+                                # Handle content being a string
+                                if isinstance(tr_content, str):
+                                    logger.info(f"🔍 Tool result content is string, length: {len(tr_content)}")
+                                    logger.info(f"🔍 Content preview: {tr_content[:200]}...")
+                                    data = extract_widget(tr_content)
+                                    if data:
+                                        maps_widget_data = data
+                                        logger.info(f"📍 Captured maps widget data with {len(maps_widget_data.get('maps_widget', {}).get('places', []))} places")
+                                
+                                # Handle content being a list of dicts
+                                elif isinstance(tr_content, list):
+                                    logger.info(f"🔍 Tool result content is list, length: {len(tr_content)}")
+                                    for tc_idx, tc in enumerate(tr_content):
+                                        logger.info(f"🔍 Content item {tc_idx}: Type={type(tc)}, Keys={tc.keys() if isinstance(tc, dict) else 'N/A'}")
+                                        if isinstance(tc, dict) and "text" in tc:
+                                            text_content = tc["text"]
+                                            logger.info(f"🔍 Text content length: {len(text_content)}, preview: {text_content[:200]}...")
+                                            data = extract_widget(text_content)
+                                            if data:
+                                                maps_widget_data = data
+                                                logger.info(f"📍 Captured maps widget data with {len(maps_widget_data.get('maps_widget', {}).get('places', []))} places")
 
                 # Handle tool usage events from agents
                 elif "current_tool_use" in inner_event:
@@ -275,10 +353,16 @@ async def create_streaming_response(
         logger.info(f"💰 Cost: ₹{cost_data['total_cost_inr']:.4f} (${cost_data['total_cost_usd']:.6f})")
         logger.info("=" * 80)
 
+        # Append maps widget metadata to response if captured
+        final_response = complete_response
+        if maps_widget_data:
+            logger.info(f"📍 Appending maps widget metadata to response")
+            final_response += f"\n\n<!--MAPS_WIDGET:{json.dumps(maps_widget_data)}-->"
+
         # Send completion event with full response and cost
         completion_data = {
             'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
-            'response': complete_response,
+            'response': final_response,
             'tool_count': tool_count,
             'cost_inr': cost_data['total_cost_inr'],
             'cost_usd': cost_data['total_cost_usd'],

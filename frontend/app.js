@@ -598,6 +598,11 @@ async function handleStreamEvent(eventType, eventData, statusId) {
 
             case 'done':
                 console.log('Stream done:', data);
+                console.log('🔍 DONE event - Response length:', data.response ? data.response.length : 'NO RESPONSE');
+                console.log('🔍 DONE event - Response preview (first 300 chars):', data.response ? data.response.substring(0, 300) : 'NO RESPONSE');
+                console.log('🔍 DONE event - Response end (last 300 chars):', data.response ? data.response.substring(data.response.length - 300) : 'NO RESPONSE');
+                console.log('🔍 DONE event - Contains MAPS_WIDGET:', data.response ? data.response.includes('<!--MAPS_WIDGET:') : false);
+
                 removeStatusIndicator(statusId);
                 updateStatus(data.status, true);
 
@@ -823,6 +828,32 @@ function addMessage(text, sender) {
 
     const textElement = document.createElement('div');
 
+    // Check for maps widget metadata and extract it
+    let mapsWidgetData = null;
+    // Use [\s\S] to match any character including newlines
+    console.log('🔍 Checking for maps widget in text, length:', text.length);
+    console.log('🔍 Text preview:', text.substring(0, 200));
+    console.log('🔍 Text end preview:', text.substring(text.length - 200));
+
+    const mapsWidgetMatch = text.match(/<!--MAPS_WIDGET:([\s\S]*?)-->/);
+    console.log('🔍 Maps widget match result:', mapsWidgetMatch ? 'FOUND' : 'NOT FOUND');
+
+    if (mapsWidgetMatch) {
+        console.log('🔍 Matched content length:', mapsWidgetMatch[1].length);
+        console.log('🔍 Matched content preview:', mapsWidgetMatch[1].substring(0, 200));
+        try {
+            mapsWidgetData = JSON.parse(mapsWidgetMatch[1]);
+            // Remove the metadata from displayed text
+            text = text.replace(/<!--MAPS_WIDGET:[\s\S]*?-->/, '').trim();
+            console.log('✅ Maps widget data found:', mapsWidgetData);
+        } catch (e) {
+            console.error('❌ Failed to parse maps widget data:', e);
+            console.error('❌ Raw data that failed to parse:', mapsWidgetMatch[1]);
+        }
+    } else {
+        console.log('❌ No maps widget marker found in text');
+    }
+
     // Process markdown-style formatting
     let formattedText = text;
 
@@ -847,6 +878,24 @@ function addMessage(text, sender) {
     textElement.style.whiteSpace = 'pre-wrap';
 
     contentDiv.appendChild(textElement);
+
+    // Add maps view button if widget data exists
+    if (mapsWidgetData && mapsWidgetData.maps_widget) {
+        const mapsButton = document.createElement('button');
+        mapsButton.className = 'maps-view-button';
+        mapsButton.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            View on Map
+        `;
+        mapsButton.addEventListener('click', () => {
+            openMapsPopup(mapsWidgetData.maps_widget);
+        });
+        contentDiv.appendChild(mapsButton);
+    }
+
     messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
 
@@ -1214,3 +1263,170 @@ window.addEventListener('beforeunload', () => {
         clearInterval(healthCheckInterval);
     }
 });
+
+// ============= Maps Popup Functions =============
+
+// Store current maps widget data
+let currentMapsWidgetData = null;
+
+// Open maps popup with widget
+function openMapsPopup(widgetData) {
+    console.log('Opening maps popup with data:', widgetData);
+    currentMapsWidgetData = widgetData;
+
+    const overlay = document.getElementById('mapsPopupOverlay');
+    const loading = document.getElementById('mapsLoading');
+    const container = document.getElementById('mapsWidgetContainer');
+
+    if (!overlay) {
+        console.error('Maps popup overlay not found');
+        return;
+    }
+
+    // Show overlay
+    overlay.style.display = 'flex';
+    loading.style.display = 'flex';
+    container.innerHTML = '';
+
+    // Prevent body scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Render the widget
+    renderMapsWidget(widgetData);
+}
+
+// Close maps popup
+function closeMapsPopup() {
+    const overlay = document.getElementById('mapsPopupOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+
+    // Restore body scrolling
+    document.body.style.overflow = '';
+
+    // Clear widget container
+    const container = document.getElementById('mapsWidgetContainer');
+    if (container) {
+        container.innerHTML = '';
+    }
+
+    currentMapsWidgetData = null;
+}
+
+// Render Google Maps widget
+function renderMapsWidget(widgetData) {
+    const loading = document.getElementById('mapsLoading');
+    const container = document.getElementById('mapsWidgetContainer');
+
+    loading.style.display = 'none';
+
+    // Check if we have places data
+    const places = widgetData?.places || [];
+    const coordinates = widgetData?.coordinates || { latitude: 17.473863, longitude: 78.351742 };
+
+    if (places.length > 0) {
+        // Show places list with links to Google Maps
+        let placesHtml = `
+            <div class="maps-places-container">
+                <div class="maps-places-list">
+                    <h3 style="color: var(--text-primary, #e9edef); margin-bottom: 16px; font-size: 16px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        ${places.length} Places Found
+                    </h3>
+        `;
+
+        places.forEach((place, index) => {
+            placesHtml += `
+                <a href="${place.uri}" target="_blank" rel="noopener noreferrer" class="maps-place-item">
+                    <div class="place-index">${index + 1}</div>
+                    <div class="place-info">
+                        <div class="place-title">${place.title}</div>
+                        <div class="place-link">Open in Google Maps</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="place-arrow">
+                        <path d="M7 17L17 7M17 7H7M17 7V17"></path>
+                    </svg>
+                </a>
+            `;
+        });
+
+        placesHtml += `
+                </div>
+                <div class="maps-embed-container">
+                    <iframe
+                        width="100%"
+                        height="100%"
+                        style="border:0; border-radius: 8px;"
+                        loading="lazy"
+                        allowfullscreen
+                        referrerpolicy="no-referrer-when-downgrade"
+                        src="https://www.google.com/maps?q=${coordinates.latitude},${coordinates.longitude}&z=14&output=embed">
+                    </iframe>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = placesHtml;
+    } else if (coordinates) {
+        // Just show map at coordinates
+        container.innerHTML = `
+            <iframe
+                width="100%"
+                height="100%"
+                style="border:0;"
+                loading="lazy"
+                allowfullscreen
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://www.google.com/maps?q=${coordinates.latitude},${coordinates.longitude}&z=14&output=embed">
+            </iframe>
+        `;
+    } else {
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #8696a0;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <p>No location data available</p>
+            </div>
+        `;
+    }
+}
+
+// Get Google Maps API key (you'll need to set this)
+function getGoogleMapsApiKey() {
+    // Try to get from config or use a placeholder
+    // In production, this should come from your backend config
+    return window.GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+}
+
+// Initialize maps popup event listeners
+function initializeMapsPopup() {
+    const closeBtn = document.getElementById('mapsPopupClose');
+    const backdrop = document.querySelector('.maps-popup-backdrop');
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeMapsPopup);
+    }
+
+    if (backdrop) {
+        backdrop.addEventListener('click', closeMapsPopup);
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('mapsPopupOverlay');
+            if (overlay && overlay.style.display !== 'none') {
+                closeMapsPopup();
+            }
+        }
+    });
+}
+
+// Initialize maps popup on DOM ready
+document.addEventListener('DOMContentLoaded', initializeMapsPopup);

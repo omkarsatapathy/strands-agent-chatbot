@@ -10,6 +10,7 @@ import {
     showTypingIndicator,
     removeTypingIndicator
 } from './ui.js';
+import { openMapsPopup, initializeMapsPopup } from './maps.js';
 
 // DOM Elements
 let chatMessages, messageInput, sendButton, searchButton;
@@ -69,6 +70,9 @@ export function initializeMessagingElements() {
     // Setup image handling
     setupImageHandling();
     setupCameraModal();
+
+    // Initialize maps popup
+    initializeMapsPopup();
 
     return { chatMessages, messageInput, sendButton, searchButton, cameraButton, imageInput };
 }
@@ -493,6 +497,28 @@ export function addMessage(text, sender, costData = null) {
 
     const textElement = document.createElement('div');
 
+    // Check for maps widget metadata and extract it
+    let mapsWidgetData = null;
+    console.log('🔍 Checking for maps widget in text, length:', text.length);
+
+    const mapsWidgetMatch = text.match(/<!--MAPS_WIDGET:([\s\S]*?)-->/);
+    console.log('🔍 Maps widget match result:', mapsWidgetMatch ? 'FOUND' : 'NOT FOUND');
+
+    if (mapsWidgetMatch) {
+        console.log('🔍 Matched content preview:', mapsWidgetMatch[1].substring(0, 200));
+        try {
+            mapsWidgetData = JSON.parse(mapsWidgetMatch[1]);
+            // Remove the metadata from displayed text
+            text = text.replace(/<!--MAPS_WIDGET:[\s\S]*?-->/, '').trim();
+            console.log('✅ Maps widget data found:', mapsWidgetData);
+        } catch (e) {
+            console.error('❌ Failed to parse maps widget data:', e);
+            console.error('❌ Raw data that failed to parse:', mapsWidgetMatch[1]);
+        }
+    } else {
+        console.log('❌ No maps widget marker found in text');
+    }
+
     // Process markdown-style formatting
     let formattedText = text;
 
@@ -517,6 +543,25 @@ export function addMessage(text, sender, costData = null) {
     textElement.style.whiteSpace = 'pre-wrap';
 
     contentDiv.appendChild(textElement);
+
+    // Add "View on Map" button if maps widget data exists
+    if (mapsWidgetData && mapsWidgetData.maps_widget) {
+        console.log('🗺️ Creating View on Map button');
+        const mapsButton = document.createElement('button');
+        mapsButton.className = 'maps-button';
+        mapsButton.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            View on Map
+        `;
+        mapsButton.onclick = () => {
+            console.log('🗺️ Map button clicked, data:', mapsWidgetData);
+            openMapsPopup(mapsWidgetData.maps_widget);
+        };
+        contentDiv.appendChild(mapsButton);
+    }
 
     // Add audio player for assistant/bot messages
     console.log('[addMessage] Checking sender type:', sender);

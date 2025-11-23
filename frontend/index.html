@@ -660,6 +660,36 @@
         </div>
     </div>
 
+    <!-- Google Maps Widget Popup -->
+    <div class="maps-popup-overlay" id="mapsPopupOverlay" style="display: none;">
+        <div class="maps-popup-backdrop"></div>
+        <div class="maps-popup-container">
+            <div class="maps-popup-header">
+                <div class="maps-popup-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span>Maps</span>
+                </div>
+                <button class="maps-popup-close" id="mapsPopupClose" title="Close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="maps-popup-body" id="mapsPopupBody">
+                <!-- Maps widget will be rendered here -->
+                <div class="maps-loading" id="mapsLoading">
+                    <div class="maps-loading-spinner"></div>
+                    <p>Loading map...</p>
+                </div>
+                <div class="maps-widget-container" id="mapsWidgetContainer"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modular JavaScript (ES6 Modules) -->
     <script type="module" src="/static/js/main.js"></script>
 </body>
