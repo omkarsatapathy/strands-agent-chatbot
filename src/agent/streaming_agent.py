@@ -132,7 +132,7 @@ async def create_streaming_response(
         # Create News Reader Agent (specialized for email and news analysis)
         news_tools = get_gmail_tools()
         news_reader_agent = Agent(
-            name="Gmail Reader Agent",
+            name="News Reader Agent",
             model=model,
             tools=news_tools,
             system_prompt=Config.get_news_reader_agent_prompt(),

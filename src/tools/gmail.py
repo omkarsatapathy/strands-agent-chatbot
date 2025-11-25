@@ -130,15 +130,18 @@ def fetch_gmail_messages(
     user_id: str = None
 ) -> str:
     """
-    Strands tool: Fetch Gmail messages for the authenticated user.
+    Strands tool: Fetch the most recent Gmail messages from inbox.
+
+    Fetches emails from the inbox and sorts them by receive time (newest first) using Gmail's internalDate.
+    Includes all inbox emails (Primary, Promotions, Social, Updates tabs).
 
     Args:
-        max_results: Maximum number of messages to fetch (default from config)
-        query: Gmail search query for filtering (e.g., "is:unread", "from:example@gmail.com")
+        max_results: Maximum number of messages to fetch (default 15)
+        query: Optional Gmail search query for filtering (e.g., "is:unread", "from:example@gmail.com", "newer_than:7d", "category:primary")
         user_id: User identifier (default from config)
 
     Returns:
-        JSON string containing list of messages with id, subject, from, date, snippet, and body
+        JSON string containing list of messages with id, subject, from, date, snippet, and full body content, sorted newest first
     """
     import json
     max_results = max_results or Config.GMAIL_DEFAULT_MAX_RESULTS
@@ -160,13 +163,22 @@ def fetch_gmail_messages(
         max_results = min(max_results, Config.GMAIL_MAX_RESULTS_LIMIT)
 
         logger.debug("Fetching messages from Gmail API")
-        results = service.users().messages().list(userId='me', maxResults=max_results, q=query).execute()
+        # Fetch from INBOX (includes all inbox emails regardless of category)
+        # Gmail API returns messages mostly in reverse chronological order, but not guaranteed
+        # We'll fetch and sort by internalDate to ensure newest first
+        results = service.users().messages().list(
+            userId='me',
+            maxResults=max_results,
+            labelIds=['INBOX'],
+            q=query
+        ).execute()
         messages = results.get('messages', [])
 
         if not messages:
             logger.info("No messages found")
             return json.dumps({"messages": [], "count": 0, "message": "No messages found matching the query."})
 
+        # Fetch detailed message data with internalDate for sorting
         detailed_messages = []
         for msg in messages:
             try:
@@ -182,11 +194,12 @@ def fetch_gmail_messages(
                     body = body[:Config.GMAIL_BODY_MAX_LENGTH] + "... [truncated]"
 
                 message_info = {
-                    # 'id': msg_data['id'],
-                    # 'subject': next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject'),
+                    'id': msg_data['id'],
+                    'subject': next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject'),
                     'from': next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown'),
-                    # 'date': next((h['value'] for h in headers if h['name'].lower() == 'date'), 'Unknown'),
-                    'snippet': msg_data.get('snippet', '')
+                    'date': next((h['value'] for h in headers if h['name'].lower() == 'date'), 'Unknown'),
+                    'snippet': msg_data.get('snippet', ''),
+                    'internalDate': int(msg_data.get('internalDate', 0))  # Store for sorting
                 }
 
                 if body:
@@ -195,6 +208,13 @@ def fetch_gmail_messages(
             except HttpError as e:
                 logger.warning(f"Failed to fetch message {msg['id']}: {str(e)}")
                 continue
+
+        # Sort messages by internalDate (newest first) to guarantee correct order
+        detailed_messages.sort(key=lambda x: x.get('internalDate', 0), reverse=True)
+
+        # Remove internalDate from response (not needed by agent)
+        for msg in detailed_messages:
+            msg.pop('internalDate', None)
 
         logger.info(f"Successfully fetched {len(detailed_messages)} Gmail messages",
             extra={"extra_data": {"count": len(detailed_messages), "query": query}})
